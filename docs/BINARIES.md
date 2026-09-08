@@ -57,8 +57,9 @@ the extracted directory and run:
 .\momcozy-desktop.exe desktop
 ```
 
-With **version 0.1.3 or newer**, double-clicking the executable starts desktop
-mode. Older releases accidentally retained Cobra's Explorer-start guard and
+With **version 0.1.3 or newer**, double-clicking the executable starts the
+program. Version 0.2.0 opens setup when no private camera configuration exists;
+otherwise it starts playback. Older releases accidentally retained Cobra's Explorer-start guard and
 could display "This is a command line tool" instead of opening the cameras.
 No manually opened terminal or command entry is needed. A console window still
 appears because this is a console application; keep it open during playback.
@@ -139,22 +140,33 @@ forced stop.
 Compare the downloaded archive against its published `SHA256SUMS` entry:
 
 ```powershell
-Get-FileHash .\momcozy-desktop-v0.1.2-windows-amd64.zip -Algorithm SHA256
+Get-FileHash .\momcozy-desktop-v0.2.0-windows-amd64.zip -Algorithm SHA256
 ```
 
 ```bash
 sha256sum -c SHA256SUMS --ignore-missing   # Linux
-shasum -a 256 momcozy-desktop-v0.1.2-darwin-arm64.tar.gz  # macOS
+shasum -a 256 momcozy-desktop-v0.2.0-darwin-arm64.tar.gz  # macOS
 ```
 
-Maintainers can create all five archives with Go and Python installed:
+Maintainers build complete setup packages **natively on each target OS and
+architecture**. The [Native setup helpers workflow](../.github/workflows/setup-helper-builds.yml)
+installs the build dependencies, builds the helper and verifies the extracted
+archive. Windows additionally rebuilds the helper bootloader for Unicorn;
+see the workflow and `scripts/build_setup_helper.py`.
 
 ```bash
-python scripts/release.py --version v0.1.2 --output /tmp/momcozy-release
+python -m pip install -r requirements-setup-build.txt
+python scripts/build_setup_helper.py --output /tmp/momcozy-setup-helper
+python scripts/release.py --version v0.2.0 --target linux/amd64 \
+  --setup-helper /tmp/momcozy-setup-helper --verify-native --output /tmp/momcozy-release
 ```
 
-Archives use a strict source-only allowlist: executable, this guide, project and
-upstream licenses, notices, and dependency license files. Private configuration,
-APK files and runtime logs are never included. Builds use `CGO_ENABLED=0` and
-`-trimpath`; generated archives have an accompanying SHA256SUMS file. Cross-build
-success does not replace playback testing on the target operating system.
+Use the matching `--target` for your native build machine. Omitting
+`--setup-helper` creates a playback-only package; omitting `--target` cross-builds
+all five playback binaries. Those packages do not contain the setup runtime.
+
+Archives include the bridge executable, documentation, public helper sources
+and runtime dependencies when selected, and license notices. APKs and private
+configuration are excluded. Go builds use `CGO_ENABLED=0` and `-trimpath`;
+each archive has an accompanying SHA256SUMS entry. Native startup tests do not
+replace playback testing on the target operating system.

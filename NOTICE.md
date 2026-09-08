@@ -20,3 +20,9 @@ APK files, extracted SDK secrets, native vendor libraries, credentials, device
 metadata and recordings are intentionally absent. Users prepare configuration
 from their own installation. Python scripts implement the observed protocol;
 they are not copied vendor application source.
+
+Complete setup packages also include a Python runtime and open-source
+preparation dependencies. Their notices and a version inventory are included
+under `setup-helper/licenses/`; the Unicorn source archive corresponds to the
+bundled, unmodified native library. These are separate from the proprietary
+vendor libraries, which are read only from the user's own APK files.

@@ -12,7 +12,7 @@ import (
 	"avent-webrtc-bridge/pkg/core"
 )
 
-var VERSION = "0.1.3"
+var VERSION = "0.2.0"
 
 func main() {
 	core.InitLogger()

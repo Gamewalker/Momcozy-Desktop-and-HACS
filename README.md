@@ -23,9 +23,8 @@ The binaries require no Python or Go for playback. On Windows, use **0.1.3+
 for double-click launch**; older builds incorrectly blocked launches from
 Explorer. The **0.2.0 setup assistant** opens in your local browser when no camera
 configuration exists, or with the `setup` command. Complete packages include its
-Python runtime; no manual Python installation is needed. Native helper builds
-are undergoing validation; older 0.1.x releases still use the source preparation
-tools. An existing private configuration can be imported from your own
+Python runtime; no manual Python installation is needed. The native build workflow checks the helper before and after packaging; older
+0.1.x releases still use the source preparation tools. An existing private configuration can be imported from your own
 installation. No APKs, vendor keys or account
 credentials are included. The tested preparation flow uses Android app **3.3.0**
 and **DE/EU accounts**. No phone proxy or Android root is needed.

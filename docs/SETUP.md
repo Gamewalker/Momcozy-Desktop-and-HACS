@@ -3,8 +3,11 @@
 The assistant configures the desktop bridge through a browser page on your
 computer. The complete package includes `setup-helper/` and its Python runtime;
 you do not install Python or run the preparation scripts manually. This feature
-is new for 0.2.0 and is not included in 0.1.x releases. Native helper packages
-for five platforms are undergoing build and runtime validation.
+is new for 0.2.0 and is not included in 0.1.x releases. The native build workflow verifies the helper before and after packaging on
+each target platform. The complete Windows workflow has additionally been
+tested with two real BM04 cameras: APK preparation, login, configuration import
+and the start button, with 1920x1080 video and decoded audio. Camera playback
+on Linux/macOS has not been tested on physical hardware in this project.
 
 ## First start
 

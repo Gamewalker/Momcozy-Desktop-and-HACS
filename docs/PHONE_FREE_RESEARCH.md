@@ -37,7 +37,7 @@ access remains necessary in the verified implementation.
 | --- | --- | --- |
 | Import own existing bridge configuration | No | Existing playback route. Import the camera manifest and its private bridge files; session expiry can still require login again. |
 | Import own `signing.private.json`, then log in | No | Supported by the Python configuration pipeline. This permits a new account session without extracting the APK again. |
-| Import own base and ARM64 APK files | No | Supported by `prepare_apk.py`; a compatible standalone APK can supply both inputs if it contains the ARM64 library. Extraction currently uses Python dependencies. |
+| Import own base and ARM64 APK files | No | Supported by `prepare_apk.py`; a compatible standalone APK can supply both inputs if it contains the ARM64 library. The 0.2.0 helper bundles the extraction runtime. |
 | Automatically pull installed APKs over ADB | Once | Automates the proven acquisition route. USB authorization still requires the user's device confirmation. |
 | Enter Momcozy email/password alone | No | Momcozy login exists; obtaining the subsequent signed Tuya session without app configuration is unresolved. |
 | Tuya/Smart Life QR login | Normally yes, for scanning | Generic upstream code exists, but successful access to a Momcozy OEM account and BM04 has not been established. |
@@ -105,8 +105,8 @@ or Momcozy account compatibility.
 
 ## Implementation direction
 
-The setup assistant should offer **existing private configuration**, **own APK
-files**, and **connected Android device** as acquisition choices. Reuse the
+The setup assistant offers **existing private configuration**, **own APK
+files**, and **connected Android device** as acquisition choices. It reuses the
 same desktop login/discovery path after app parameters are available. This
 removes manual commands without depending on an unproven account migration.
 

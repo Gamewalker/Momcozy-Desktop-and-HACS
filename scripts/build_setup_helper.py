@@ -7,6 +7,8 @@ Windows requires a C compiler and a rebuilt PyInstaller bootloader for Unicorn:
 set PYINSTALLER_COMPILE_BOOTLOADER=1 and PYINSTALLER_BOOTLOADER_WAF_ARGS=--no-cfg,
 then pip install --force-reinstall --no-binary pyinstaller --no-cache-dir PyInstaller==6.22.2.
 See https://pyinstaller.org/en/stable/common-issues-and-pitfalls.html#windows-executables-and-control-flow-guard-cfg
+macOS Intel must install cryptography with OPENSSL_STATIC=1 (see CI workflow),
+avoiding a libssl symbol collision with the Python framework's OpenSSL.
 """
 import argparse
 import hashlib
