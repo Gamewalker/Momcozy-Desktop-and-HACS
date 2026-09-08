@@ -1,7 +1,7 @@
 # Desktop binaries: Windows, Linux and macOS
 
 Download the archive for your machine from
-[GitHub Releases](https://github.com/Gamewalker/momcozy-desktop/releases/latest).
+[GitHub Releases](https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/releases/latest).
 The executable starts the camera bridges and opens one VLC window per camera.
 Playback needs **VLC and your private camera configuration**; Python and Go are
 not required on the viewing machine. This is a command-line application with VLC
@@ -23,7 +23,7 @@ from this repository and verify its SHA256SUMS entry before running it.
 ## 1. Prepare private configuration once
 
 The executable does not contain vendor SDK keys, credentials or camera IDs.
-Use the source checkout's [setup and account preparation instructions](https://github.com/Gamewalker/momcozy-desktop/blob/main/docs/DESKTOP-DE.md)
+Use the source checkout's [setup and account preparation instructions](https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/blob/main/docs/DESKTOP-DE.md)
 to extract SDK parameters from **your installed Android APK** and configure your
 account. That initial step requires Python and the listed preparation tools.
 Afterward, playback uses only the downloaded binary and VLC. No Android proxy is
@@ -79,7 +79,7 @@ Stop with **Ctrl+C**. No root privileges are needed.
 
 ## Serve without opening a player
 
-For Home Assistant audio, version 0.1.1 adds optional per-camera
+For Home Assistant audio, use version 0.1.2 or newer with per-camera
 `"audio-format": "aac"` and `"ffmpeg-path"` settings. This requires a separate
 FFmpeg installation on the bridge computer. See [HA audio configuration](HOME_ASSISTANT.md#optional-audio-conversion-for-home-assistant).
 The default `copy` mode continues to work without FFmpeg.
@@ -129,18 +129,18 @@ forced stop.
 Compare the downloaded archive against its published `SHA256SUMS` entry:
 
 ```powershell
-Get-FileHash .\momcozy-desktop-v0.1.0-windows-amd64.zip -Algorithm SHA256
+Get-FileHash .\momcozy-desktop-v0.1.2-windows-amd64.zip -Algorithm SHA256
 ```
 
 ```bash
 sha256sum -c SHA256SUMS --ignore-missing   # Linux
-shasum -a 256 momcozy-desktop-v0.1.0-darwin-arm64.tar.gz  # macOS
+shasum -a 256 momcozy-desktop-v0.1.2-darwin-arm64.tar.gz  # macOS
 ```
 
 Maintainers can create all five archives with Go and Python installed:
 
 ```bash
-python scripts/release.py --version v0.1.0 --output /tmp/momcozy-release
+python scripts/release.py --version v0.1.2 --output /tmp/momcozy-release
 ```
 
 Archives use a strict source-only allowlist: executable, this guide, project and

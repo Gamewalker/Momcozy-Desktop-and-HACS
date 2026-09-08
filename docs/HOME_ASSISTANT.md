@@ -14,7 +14,7 @@ Linux or macOS computer; that computer must remain awake.
 ## 1. Prepare a reachable bridge
 
 Complete the [desktop setup](DESKTOP-DE.md) first and confirm playback in VLC.
-Use the [GitHub release](https://github.com/Gamewalker/momcozy-desktop/releases)
+Use the [GitHub release](https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/releases)
 for your bridge computer. A bridge listening only on `127.0.0.1` is inaccessible
 to Home Assistant on another machine or container.
 
@@ -46,11 +46,26 @@ For HA OS, use the LAN IP of the separate bridge computer. For HA Container,
 `localhost` means the container itself, not its Docker host. Home Assistant's
 public HTTPS address is not the address of the bridge.
 
+Start the configured bridge without VLC (use your actual private folder):
+
+```powershell
+# Windows
+.\momcozy-desktop.exe desktop --no-player --data-dir "C:\Private\Momcozy"
+```
+
+```sh
+# Linux / macOS
+./momcozy-desktop desktop --no-player --data-dir "$HOME/.momcozy-desktop"
+```
+
+For HA sound, enable [AAC conversion](#optional-audio-conversion-for-home-assistant)
+before starting. Keep the process running; closing it disconnects HA cameras.
+
 ## 2. Install with HACS
 
 1. Open **HACS → three-dot menu → Custom repositories**.
-2. Add `https://github.com/Gamewalker/momcozy-desktop`, category **Integration**.
-3. Find **Momcozy Bridge** in HACS and download it.
+2. Add `https://github.com/Gamewalker/Momcozy-Desktop-and-HACS`, category **Integration**.
+3. Find **Momcozy Desktop and HACS** in HACS and download it.
 4. Restart Home Assistant.
 5. Go to **Settings → Devices & services → Add integration → Momcozy Bridge**.
 
@@ -58,6 +73,26 @@ Manual installation is also supported: copy only
 `custom_components/momcozy/` into `/config/custom_components/momcozy/`, then
 restart Home Assistant. The component contains all its runtime code; repository
 root Python modules and the desktop tooling do not belong in `/config`.
+
+## Repository rename
+
+The GitHub repository is now `Gamewalker/Momcozy-Desktop-and-HACS`.
+For a new HACS installation, use the new URL above. Existing camera entries,
+entity IDs, RTSP credentials and private bridge configuration do not need to
+be recreated. The integration still appears as **Momcozy Bridge** in Home
+Assistant; the HACS repository name is **Momcozy Desktop and HACS**.
+
+For an existing source checkout, update its remote:
+
+```sh
+git remote set-url origin https://github.com/Gamewalker/Momcozy-Desktop-and-HACS.git
+git pull
+```
+
+If HACS still lists the old repository name or an update fails, refresh HACS
+and check its custom repository URL. Use the new URL for repository registration;
+do not delete your working camera entries. Existing release executables and
+private directory names remain `momcozy-desktop`.
 
 ## 3. Add each camera
 
@@ -133,7 +168,7 @@ authenticated source URLs, so redact them before sharing.
 
 BM04 cameras supply G.711 audio. Home Assistant's standard
 [stream player accepts AAC/MP3, not G.711](https://www.home-assistant.io/integrations/stream/).
-With bridge version **0.1.1 or newer**, enable AAC separately for each camera by
+With bridge version **0.1.2 or newer**, enable AAC separately for each camera by
 adding these keys to its existing `bridge-N.private.json` on the bridge computer:
 
 ```json
@@ -176,6 +211,10 @@ audio codec produces an error instead of silently claiming AAC support. Encoder
 failure triggers the normal camera reconnection path. The conversion adds audio
 buffering/CPU use and does not improve the source microphone quality.
 
+Both cameras have been verified with live video and audible AAC in Home
+Assistant using bridge 0.1.2. The HACS component remains version 0.1.0:
+bridge releases and the Python integration have independent versions.
+
 This setting belongs to the bridge configuration because encoding runs on that
 computer. Updating HACS alone does not update the bridge executable.
 
@@ -213,4 +252,3 @@ python -m pytest -o asyncio_mode=auto tests/home_assistant/test_integration.py
 That harness pins Home Assistant 2026.9.1. The declared minimum follows the APIs
 used by the component; a passing current-version test run is not a test of every
 intervening HA release.
-

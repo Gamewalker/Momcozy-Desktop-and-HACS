@@ -1,6 +1,7 @@
 # Contributing
 
-Keep desktop launch code in `client/` and `scripts/`, media/signaling code in
+Keep binary desktop launch code in `bridge/cmd/desktop/`, source launchers in
+`client/` and `scripts/`, media/signaling code in
 `bridge/`, and the Home Assistant integration in
 `custom_components/momcozy/`. Read `docs/HOME_ASSISTANT.md` before adding HACS
 metadata or integration dependencies.
@@ -8,6 +9,11 @@ metadata or integration dependencies.
 Run `go test ./...` from `bridge/` and
 `python -m unittest discover -s tests/client -v` from the root. Check shell
 syntax with `bash -n scripts/setup.sh` and `bash -n scripts/watch.sh`.
+
+Set `MOMCOZY_TEST_FFMPEG` to an installed FFmpeg executable when running Go
+tests to include real AAC encoding checks. Both source input sample rates
+(8/16 kHz) must be tested independently from the camera's RTP clock rate.
+The GitHub workflow runs these tests on Linux alongside the HA tests.
 
 Use synthetic fixtures. Never commit APKs, vendor binaries, account credentials,
 private JSON state, device identifiers, captured media or raw signaling logs.

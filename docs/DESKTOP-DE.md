@@ -8,7 +8,7 @@ Verbindungsvermittlung benötigen weiterhin die Momcozy-/Tuya-Cloud.
 
 ### Fertige EXE herunterladen
 
-Unter [GitHub Releases](https://github.com/Gamewalker/momcozy-desktop/releases/latest) das Windows-amd64-ZIP herunterladen, entpacken und die enthaltene `momcozy-desktop.exe` starten. Für die Wiedergabe werden VLC und die eigene private Kamerakonfiguration benötigt; Python und Go sind dafür nicht nötig. Bei der ersten Einrichtung müssen die APK-/Kontoparameter weiterhin wie unten beschrieben vorbereitet oder aus der eigenen Installation übernommen werden. Details einschließlich `--data-dir` stehen in der [Binary-Anleitung](BINARIES.md).
+Unter [GitHub Releases](https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/releases/latest) das Windows-amd64-ZIP herunterladen, entpacken und die enthaltene `momcozy-desktop.exe` starten. Für die Wiedergabe werden VLC und die eigene private Kamerakonfiguration benötigt; Python und Go sind dafür nicht nötig. Bei der ersten Einrichtung müssen die APK-/Kontoparameter weiterhin wie unten beschrieben vorbereitet oder aus der eigenen Installation übernommen werden. Details einschließlich `--data-dir` stehen in der [Binary-Anleitung](BINARIES.md).
 
 Die folgenden Schritte beschreiben die Einrichtung aus dem Quellcode.
 
@@ -29,8 +29,8 @@ Konfiguration übernehmen“ verwenden.
 Die folgenden Befehle in **PowerShell** ausführen:
 
 ```powershell
-git clone https://github.com/Gamewalker/momcozy-desktop.git
-cd momcozy-desktop
+git clone https://github.com/Gamewalker/Momcozy-Desktop-and-HACS.git
+cd Momcozy-Desktop-and-HACS
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 New-Item -ItemType Directory -Force bin | Out-Null
@@ -151,8 +151,8 @@ Voraussetzungen: Python 3.11+, Go 1.26.2+ und VLC. Unter macOS VLC in
 `/Applications` installieren; unter Linux muss `vlc` im Suchpfad liegen.
 
 ```sh
-git clone https://github.com/Gamewalker/momcozy-desktop.git
-cd momcozy-desktop
+git clone https://github.com/Gamewalker/Momcozy-Desktop-and-HACS.git
+cd Momcozy-Desktop-and-HACS
 ./scripts/setup.sh
 ```
 
@@ -201,7 +201,7 @@ Linux/macOS steht noch aus.
 Die Integration ist über HACS als benutzerdefiniertes Repository installierbar;
 siehe [Home-Assistant-Anleitung](HOME_ASSISTANT.md). Die Bridge läuft separat.
 
-Ab Bridge-Version **0.1.1** lässt sich der Ton pro Kamera für HA nach AAC
+Ab Bridge-Version **0.1.2** lässt sich der Ton pro Kamera für HA nach AAC
 umwandeln. FFmpeg auf dem Bridge-Rechner installieren und diese Schlüssel in die
 bestehende `bridge-N.private.json` ergänzen (andere Einträge beibehalten):
 

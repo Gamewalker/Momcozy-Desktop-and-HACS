@@ -4,10 +4,10 @@
   "codeowners": ["@Gamewalker"],
   "config_flow": true,
   "dependencies": ["ffmpeg", "stream"],
-  "documentation": "https://github.com/Gamewalker/momcozy-desktop/blob/main/docs/HOME_ASSISTANT.md",
+  "documentation": "https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/blob/main/docs/HOME_ASSISTANT.md",
   "integration_type": "device",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/Gamewalker/momcozy-desktop/issues",
+  "issue_tracker": "https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/issues",
   "requirements": [],
   "version": "0.1.0"
 }
