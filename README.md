@@ -106,15 +106,43 @@ files; do not place them in Git. Saved sessions may expire, in which case rerun
 
 ## Windows playback
 
+For the complete German Windows guide, including APK extraction, existing
+configuration and the earlier local desktop shortcuts, see
+[Windows setup and playback](docs/DESKTOP-DE.md#windows).
+
+Install Python 3.11+, Go 1.26.2+, Git and VLC. Open **PowerShell** and run the
+following commands in order, checking that each succeeds:
+
 ```powershell
-New-Item -ItemType Directory -Force bin
+git clone https://github.com/Gamewalker/momcozy-desktop.git
+cd momcozy-desktop
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+New-Item -ItemType Directory -Force bin | Out-Null
 go -C bridge build -o ../bin/momcozy-bridge.exe .
-.venv\Scripts\python.exe client\watch.py
 ```
 
-The same Python launcher manages the two bridge processes and VLC windows.
-For manual use, pass a `bridge-N.private.json` path as the executable's only
-argument and use a separate private working directory per camera instance.
+For a first installation, prepare your own APKs and INI credentials file as
+described above. Substitute your actual private file paths:
+
+```powershell
+.\.venv\Scripts\python.exe client\prepare_apk.py "C:\Private\base.apk" "C:\Private\split_config.arm64_v8a.apk"
+.\.venv\Scripts\python.exe client\configure.py "C:\Private\momcozy.txt"
+.\.venv\Scripts\python.exe client\watch.py
+```
+
+For subsequent playback, run only the last command from the repository folder.
+Keep PowerShell open; **Ctrl+C** stops this launcher's bridge processes. Close
+VLC windows separately. Use `--no-player` to serve RTSP without opening VLC.
+The launcher finds VLC in `C:\Program Files\VideoLAN\VLC` or on PATH. No virtual
+environment activation or PowerShell execution-policy change is needed.
+
+Private state defaults to `$env:USERPROFILE\.momcozy-desktop`. To select an
+existing private state folder, set `$env:MOMCOZY_DATA_DIR = 'C:\Private\State'`
+in the same PowerShell session before running the client. Stop any existing
+viewer first to free the camera ports. Rerun `configure.py` when tokens expire.
+There is currently no downloadable Windows release executable; the Go command
+above builds it locally. The repository does not create desktop shortcuts.
 
 The first camera is `rtsp://127.0.0.1:18554/bm04_1`, the second
 `rtsp://127.0.0.1:18555/bm04_2`. Cameras are numbered in discovery order; these

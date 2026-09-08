@@ -4,6 +4,141 @@ Die BM04 lässt sich über diese Bridge in VLC ansehen. Mit zwei Kameras wurden
 unter Windows gleichzeitig Full-HD-Bild und Ton geprüft. Anmeldung und
 Verbindungsvermittlung benötigen weiterhin die Momcozy-/Tuya-Cloud.
 
+## Windows
+
+### Voraussetzungen
+
+Installiere Python 3.11+, Go 1.26.2+, Git und VLC. Python, Go und Git müssen
+in PowerShell über `python`, `go` und `git` erreichbar sein; nach der
+Installation gegebenenfalls ein neues PowerShell-Fenster öffnen. Der Starter
+findet VLC unter `C:\Program Files\VideoLAN\VLC\vlc.exe` oder über den Suchpfad.
+
+Für die einmalige APK-Aufbereitung werden zusätzlich Android Platform Tools
+(`adb`) und die eigenen APKs der Momcozy-App **3.3.0** benötigt. Wer bereits eine
+private Konfiguration besitzt, kann stattdessen den Abschnitt „Vorhandene
+Konfiguration übernehmen“ verwenden.
+
+### Repository und Werkzeuge einrichten
+
+Die folgenden Befehle in **PowerShell** ausführen:
+
+```powershell
+git clone https://github.com/Gamewalker/momcozy-desktop.git
+cd momcozy-desktop
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+New-Item -ItemType Directory -Force bin | Out-Null
+go -C bridge build -o ../bin/momcozy-bridge.exe .
+```
+
+Jeder Schritt muss erfolgreich abschließen, bevor der nächste ausgeführt wird.
+Die virtuelle Umgebung wird direkt angesprochen; `Activate.ps1` und eine
+Änderung der PowerShell-Ausführungsrichtlinie sind dafür nicht erforderlich.
+Eine fertige Windows-EXE wird derzeit nicht als GitHub-Release angeboten; der
+Build-Befehl erzeugt sie lokal unter `bin\momcozy-bridge.exe`.
+
+### Einmalig APKs und Konto vorbereiten
+
+Das Android-Telefon anschließen, USB-Debugging aktivieren und die angezeigte
+ADB-Verbindung am Telefon bestätigen:
+
+```powershell
+adb devices
+adb shell pm path com.lute.momcozy
+```
+
+Die zweite Ausgabe enthält die installierten APK-Pfade. Den Pfad für `base.apk`
+und den ARM64-Split übernehmen; das Präfix `package:` nicht mitkopieren. Mit
+`adb pull "ANDROID-PFAD" "LOKALER-PFAD"` beide Dateien in einen privaten Ordner
+außerhalb des Repositories kopieren. Die Platzhalter im folgenden Beispiel
+durch die tatsächlich ausgegebenen Android-Pfade ersetzen:
+
+```powershell
+$private = Join-Path $env:USERPROFILE 'Momcozy-Privat'
+New-Item -ItemType Directory -Force $private | Out-Null
+adb pull "/data/app/PLATZHALTER/base.apk" "$private\base.apk"
+adb pull "/data/app/PLATZHALTER/split_config.arm64_v8a.apk" "$private\split_config.arm64_v8a.apk"
+.\.venv\Scripts\python.exe client\prepare_apk.py "$private\base.apk" "$private\split_config.arm64_v8a.apk"
+```
+
+Im privaten Ordner eine Datei `momcozy.txt` anlegen, beispielsweise mit Editor:
+
+```powershell
+notepad "$private\momcozy.txt"
+```
+
+Inhalt der Datei:
+
+```ini
+USERNAME=deine-kontoadresse@example.com
+PASSWORD=dein-passwort
+```
+
+Die Datei speichern und die Anmeldung ausführen:
+
+```powershell
+.\.venv\Scripts\python.exe client\configure.py "$private\momcozy.txt"
+```
+
+Die Zugangsdaten gehören nicht ins Repository. Nur der DE/EU-Anmeldeweg ist
+bisher implementiert und getestet. Für spätere Wiedergabe wird das Telefon
+nicht benötigt; die Cloud-Verbindung bleibt erforderlich.
+
+### Kameras ansehen und stoppen
+
+Aus dem Repository-Ordner starten:
+
+```powershell
+.\.venv\Scripts\python.exe client\watch.py
+```
+
+Pro Kamera öffnet sich ein VLC-Fenster mit Bild und Ton. PowerShell offen
+lassen; **Strg+C** beendet die von diesem Starter gestarteten
+Kameraverbindungen. Die VLC-Fenster separat schließen.
+
+Nur die lokalen Streams bereitstellen, ohne VLC automatisch zu öffnen:
+
+```powershell
+.\.venv\Scripts\python.exe client\watch.py --no-player
+```
+
+Die erste Kamera ist über `rtsp://127.0.0.1:18554/bm04_1`, die zweite über
+`rtsp://127.0.0.1:18555/bm04_2` erreichbar. Die Nummerierung entspricht der
+Geräteabfrage. Der automatische Starter verwendet RTSP über TCP. Die Streams
+sind nur auf diesem PC erreichbar; eine Firewall-Freigabe ist nicht nötig.
+
+### Vorhandene Konfiguration übernehmen
+
+Die Repository-Version verwendet standardmäßig
+`$env:USERPROFILE\.momcozy-desktop`. Bereits erzeugte Dateien
+`signing.private.json`, `bridge-N.private.json` und – falls vorhanden –
+`cameras.private.json` privat dorthin kopieren. Alternativ in derselben
+PowerShell-Sitzung vor Anmeldung und Start einen bestehenden privaten
+Konfigurationsordner auswählen:
+
+```powershell
+$env:MOMCOZY_DATA_DIR = 'C:\Pfad\zur\privaten\Konfiguration'
+.\.venv\Scripts\python.exe client\watch.py
+```
+
+Eine bereits laufende Instanz vorher beenden, damit die Kamera-Ports frei sind.
+Bei abgelaufener Sitzung `client\configure.py` mit dem Pfad zur eigenen
+Zugangsdaten-Datei erneut ausführen. Das ausgewählte Datenverzeichnis dabei
+beibehalten.
+
+Bei der zuvor individuell eingerichteten Windows-Testinstallation heißen die
+Desktop-Verknüpfungen **Momcozy Kameras** und **Momcozy stoppen**. Sie starten
+bzw. beenden deren Hintergrundverbindungen; `Anmeldung erneuern.cmd` liegt im
+zugehörigen `outputs`-Ordner. Diese Verknüpfungen gehören zur lokalen
+Testinstallation und werden durch einen Git-Clone nicht automatisch angelegt.
+Die Repository-Version wird wie oben über `client\watch.py` bedient.
+
+Windows-Diagnoseprotokolle liegen standardmäßig unter
+`$env:USERPROFILE\.momcozy-desktop\runtime\bm04_N\bridge.log`. Bei Verwendung
+von `MOMCOZY_DATA_DIR` liegen sie entsprechend unter diesem Ordner. Protokolle
+können Gerätekennungen enthalten und gehören nicht ungeprüft in öffentliche
+Issues.
+
 ## Linux und macOS
 
 Voraussetzungen: Python 3.11+, Go 1.26.2+ und VLC. Unter macOS VLC in
