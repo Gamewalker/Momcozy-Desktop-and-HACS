@@ -1,5 +1,7 @@
 # Momcozy BM04 Desktop
 
+[Deutsche Kurzanleitung](docs/DESKTOP-DE.md) · [Planned HACS integration](docs/HOME_ASSISTANT.md)
+
 An experimental desktop viewer for your own Momcozy BM04 cameras. It signs in
 with your Momcozy account, negotiates Tuya WebRTC, and exposes one **loopback-only
 RTSP stream per camera** for VLC. No phone proxy, root, modified app or Tuya
@@ -14,6 +16,9 @@ offline RTSP firmware replacement or an official Momcozy product.
 
 - `bridge/`: Go WebRTC-to-RTSP bridge, adapted from aventproxy.
 - `client/`: local APK preparation, account login and camera discovery.
+- `scripts/`: Linux/macOS setup and playback entry points.
+- `custom_components/momcozy/`: reserved location for the future HACS integration.
+- `tests/client/` and `tests/home_assistant/`: separate desktop and future HA tests.
 - `docs/PROTOCOL.md`: observed authentication and media protocol.
 - `docs/SECURITY.md`: private state, reporting and publication boundaries.
 
@@ -67,17 +72,49 @@ restrictive umask; on Windows use a directory protected by your user profile's
 ACLs. Account passwords are read from your file, not CLI arguments. Session
 tokens, application keys and device IDs in the state directory remain sensitive.
 
-## Windows manual playback
+## Linux and macOS playback
+
+Install Python, Go and VLC, then:
+
+```sh
+git clone https://github.com/Gamewalker/momcozy-desktop.git
+cd momcozy-desktop
+./scripts/setup.sh
+```
+
+Prepare your own APK and credentials using the commands above. Then run:
+
+```sh
+./scripts/watch.sh
+```
+
+One VLC instance opens per camera. Keep the terminal open. **Ctrl+C** stops the
+bridges started by this invocation; close VLC windows separately. To serve only
+local RTSP, use `./scripts/watch.sh --no-player`. The script never opens ports
+on other network interfaces, installs system services or changes phone settings.
+
+On macOS the launcher finds `/Applications/VLC.app/Contents/MacOS/VLC`; on Linux
+it uses `vlc` from PATH. Intel and ARM builds are supported. If VLC is installed
+only through Flatpak, install a native VLC package or use `--no-player` and open
+the local RTSP addresses in your player manually.
+
+An existing installation can be transferred privately: copy
+`signing.private.json`, `bridge-N.private.json` and, if present,
+`cameras.private.json` into the new private state directory. These are sensitive
+files; do not place them in Git. Saved sessions may expire, in which case rerun
+`client/configure.py` with your own credentials file.
+
+## Windows playback
 
 ```powershell
 New-Item -ItemType Directory -Force bin
 go -C bridge build -o ../bin/momcozy-bridge.exe .
+.venv\Scripts\python.exe client\watch.py
 ```
 
-For each camera start the executable with its `bridge-N.private.json` as its
-only argument, using a separate private working directory per instance. Keep
-the configuration path quoted if it contains spaces. Then open the matching
-local RTSP address in VLC using RTSP over TCP.
+The same Python launcher manages the two bridge processes and VLC windows.
+For manual use, pass a `bridge-N.private.json` path as the executable's only
+argument and use a separate private working directory per camera instance.
 
 The first camera is `rtsp://127.0.0.1:18554/bm04_1`, the second
 `rtsp://127.0.0.1:18555/bm04_2`. Cameras are numbered in discovery order; these
@@ -90,11 +127,17 @@ cd bridge
 go test ./...
 ```
 
-Windows live-camera decoding is verified. Linux/macOS builds and launchers are
-being added; a cross-build alone does not establish live-camera compatibility.
+Client tests: `python -m unittest discover -s tests/client -v`.
+
+Windows live-camera decoding and the new Python launcher are verified. Linux
+amd64/arm64 and macOS amd64/arm64 cross-builds passed. Bash syntax and launcher
+configuration tests passed; native live-camera playback on Linux/macOS has not
+been performed on this Windows host. A cross-build alone does not establish
+live-camera compatibility.
 Long-duration reliability, network-outage recovery, automatic session refresh
-and non-EU accounts remain unverified. Home Assistant is outside the current
-scope. Talkback is off by default.
+and non-EU accounts remain unverified. Home Assistant has a
+[reserved structure and implementation plan](docs/HOME_ASSISTANT.md), but no
+installable HACS integration yet. Talkback is off by default.
 
 ## Attribution
 

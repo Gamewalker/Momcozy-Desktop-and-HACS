@@ -10,6 +10,8 @@ for number,device in enumerate(devices,1):
     dev_id=device['metadata']['extDeviceId']
     info=call('tuya.m.device.get',{'devId':dev_id},sid=sid)
     rtc=call('smartlife.m.rtc.config.get',{'devId':dev_id},sid=sid)
+    if not info.get('success') or not rtc.get('success'):
+        raise SystemExit('Camera configuration request failed.')
     results.append({'deviceId':dev_id,'info':info,'rtc':rtc})
     print('Camera',number,'info',info.get('success'),info.get('errorCode'),
           'RTC',rtc.get('success'),rtc.get('errorCode'))

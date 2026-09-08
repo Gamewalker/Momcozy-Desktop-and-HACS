@@ -21,3 +21,6 @@ if result.get('success'):
     (ROOT/'tuya-session.private.json').write_text(json.dumps(login),encoding='utf-8')
     print('Tuya login:',login.get('success'),login.get('errorCode'))
     if isinstance(login.get('result'),dict): print('Session field names:',list(login['result']))
+
+if not result.get("success") or not login.get("success"):
+    raise SystemExit("Tuya authentication failed; no automatic retry.")

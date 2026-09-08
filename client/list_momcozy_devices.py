@@ -13,14 +13,6 @@ with opener.open(request, timeout=20) as response:
     result = json.load(response)
 (root / 'devices.private.json').write_text(json.dumps(result), encoding='utf-8')
 print('Response code:', result.get('code'))
-def structure(value, depth=0):
-    if depth > 3:
-        return
-    if isinstance(value, dict):
-        for key, item in value.items():
-            print('  '*depth + key + ': ' + type(item).__name__)
-            structure(item, depth+1)
-    elif isinstance(value, list):
-        print('  '*depth + 'count: ' + str(len(value)))
-        if value: structure(value[0], depth+1)
-structure(result.get('result'))
+if str(result.get('code')) != '200':
+    raise SystemExit('Device discovery failed.')
+print('Devices discovered:', len(result['result']['deviceList']))

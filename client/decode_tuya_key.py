@@ -104,3 +104,6 @@ if status==0 and 0<num<20:
     keys=[cstr(read64(ptr+8*i)).decode() for i in range(num)]
     (root/'embedded-keys.private.json').write_text(json.dumps(keys),encoding='utf-8')
     print('Decoded keys saved locally; lengths:',[len(k) for k in keys])
+
+else:
+    raise SystemExit("Unsupported decoder result; no keys produced.")
