@@ -157,7 +157,7 @@ Run the HA tests on Linux with Python 3.14:
 ```sh
 sudo apt-get install libturbojpeg ffmpeg
 python -m pip install -r tests/home_assistant/requirements.txt
-python -m pytest -o asyncio_mode=auto tests/home_assistant
+python -m pytest -o asyncio_mode=auto tests/home_assistant/test_integration.py
 ```
 
 That harness pins Home Assistant 2026.9.1. The declared minimum follows the APIs
