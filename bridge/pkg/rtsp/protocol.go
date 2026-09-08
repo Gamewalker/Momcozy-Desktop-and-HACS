@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/textproto"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -66,17 +66,6 @@ func sendRTSPResponse(conn net.Conn, statusCode int, status string, headers map[
 	}
 
 	responseStr := response.String()
-
-	fmt.Println()
-	core.Logger.Trace().Msgf("Sending RTSP response:")
-	re := regexp.MustCompile(`\r\n|\r|\n`)
-	lines := re.Split(responseStr, -1)
-	for _, line := range lines {
-		if line != "" {
-			fmt.Println(line)
-		}
-	}
-	fmt.Println()
 
 	_, err := conn.Write([]byte(responseStr))
 	return err
@@ -196,14 +185,17 @@ func (s *RTSPServer) handleInterleavedRTP(client *RTSPClient) error {
 
 func (s *RTSPServer) parseRTSPRequestFromReader(reader *bufio.Reader) (*RTSPRequest, error) {
 	// Read request line
-	line, _, err := reader.ReadLine()
+	line, partial, err := reader.ReadLine()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read request line: %v", err)
 	}
 
+	if partial {
+		return nil, fmt.Errorf("request line too long")
+	}
 	parts := strings.Split(string(line), " ")
 	if len(parts) != 3 {
-		return nil, fmt.Errorf("invalid request line: %s", string(line))
+		return nil, fmt.Errorf("invalid request line")
 	}
 
 	request := &RTSPRequest{
@@ -213,13 +205,19 @@ func (s *RTSPServer) parseRTSPRequestFromReader(reader *bufio.Reader) (*RTSPRequ
 		Headers: make(map[string]string),
 	}
 
-	// Read headers
-	for {
-		line, _, err := reader.ReadLine()
+	// Read bounded headers. Never log credentials or raw RTSP URLs.
+	for count := 0; ; count++ {
+		if count >= 64 {
+			return nil, fmt.Errorf("too many headers")
+		}
+		line, partial, err := reader.ReadLine()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read header: %v", err)
 		}
 
+		if partial {
+			return nil, fmt.Errorf("header too long")
+		}
 		lineStr := string(line)
 		if lineStr == "" {
 			break // End of headers
@@ -233,7 +231,7 @@ func (s *RTSPServer) parseRTSPRequestFromReader(reader *bufio.Reader) (*RTSPRequ
 
 		key := strings.TrimSpace(lineStr[:colonIndex])
 		value := strings.TrimSpace(lineStr[colonIndex+1:])
-		request.Headers[key] = value
+		request.Headers[textproto.CanonicalMIMEHeaderKey(key)] = value
 
 		// Extract CSeq
 		if strings.ToLower(key) == "cseq" {
@@ -243,21 +241,23 @@ func (s *RTSPServer) parseRTSPRequestFromReader(reader *bufio.Reader) (*RTSPRequ
 		}
 	}
 
-	fmt.Println()
-	core.Logger.Trace().Msg("Received RTSP request:")
-	fmt.Printf("%s %s %s\n", request.Method, request.URL, request.Version)
-	for key, value := range request.Headers {
-		fmt.Printf("%s: %s\n", key, value)
+	if parsed, err := url.Parse(request.URL); err == nil {
+		parsed.User = nil
+		request.URL = parsed.String()
 	}
-	fmt.Println()
-
 	return request, nil
 }
 
 func (s *RTSPServer) handleRTSPMethod(client *RTSPClient, request *RTSPRequest) bool {
+	if !s.authorized(request) {
+		s.challenge(client.conn, request.CSeq)
+		return false
+	}
 	close := false
 
 	switch request.Method {
+	case "GET_PARAMETER":
+		s.handleOptions(client, request)
 	case "OPTIONS":
 		s.handleOptions(client, request)
 	case "DESCRIBE":
@@ -279,7 +279,7 @@ func (s *RTSPServer) handleRTSPMethod(client *RTSPClient, request *RTSPRequest) 
 func (s *RTSPServer) handleOptions(client *RTSPClient, request *RTSPRequest) {
 	headers := map[string]string{
 		"CSeq":   strconv.Itoa(request.CSeq),
-		"Public": "OPTIONS, DESCRIBE, SETUP, PLAY, TEARDOWN",
+		"Public": "OPTIONS, DESCRIBE, SETUP, PLAY, TEARDOWN, GET_PARAMETER",
 	}
 
 	sendRTSPResponse(client.conn, 200, "OK", headers, "")
@@ -379,6 +379,10 @@ func (s *RTSPServer) handleSetup(client *RTSPClient, request *RTSPRequest) {
 		}
 
 	} else if strings.Contains(transport, "RTP/AVP") {
+		if !net.ParseIP(s.ListenHost).IsLoopback() && s.ListenHost != "" {
+			sendRTSPResponse(client.conn, 461, "Unsupported Transport", map[string]string{"CSeq": strconv.Itoa(request.CSeq)}, "")
+			return
+		}
 		// UDP mode
 		client.transportMode = TransportUDP
 

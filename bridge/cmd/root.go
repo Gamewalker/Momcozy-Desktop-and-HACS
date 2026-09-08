@@ -7,6 +7,7 @@ import (
 	"avent-webrtc-bridge/cmd/addon"
 	"avent-webrtc-bridge/cmd/auth"
 	"avent-webrtc-bridge/cmd/cameras"
+	"avent-webrtc-bridge/cmd/desktop"
 	"avent-webrtc-bridge/cmd/direct"
 	"avent-webrtc-bridge/cmd/rtsp"
 	"avent-webrtc-bridge/pkg/storage"
@@ -50,6 +51,7 @@ func init() {
 	rootCmd.AddCommand(cameras.NewCamerasCmd())
 	rootCmd.AddCommand(rtsp.NewRTSPCmd())
 	rootCmd.AddCommand(direct.NewDirectCmd())
+	rootCmd.AddCommand(desktop.NewCommand())
 	rootCmd.AddCommand(addon.NewAddonCmd())
 }
 

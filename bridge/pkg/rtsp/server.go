@@ -16,6 +16,9 @@ import (
 )
 
 type RTSPServer struct {
+	ListenHost     string
+	Username       string
+	Password       string
 	port           int
 	listener       net.Listener
 	storageManager *storage.StorageManager
@@ -115,8 +118,11 @@ func (s *RTSPServer) Start() error {
 		return errors.New("server is already running")
 	}
 
+	if err := s.validateAccess(); err != nil {
+		return err
+	}
 	lc := net.ListenConfig{Control: reuseAddrControl}
-	listener, err := lc.Listen(s.ctx, "tcp", fmt.Sprintf("127.0.0.1:%d", s.port))
+	listener, err := lc.Listen(s.ctx, "tcp", net.JoinHostPort(s.ListenHost, fmt.Sprint(s.port)))
 	if err != nil {
 		return fmt.Errorf("failed to listen on port %d: %v", s.port, err)
 	}
@@ -247,6 +253,7 @@ func (s *RTSPServer) handleConnection(conn net.Conn) {
 
 	reader := bufio.NewReader(conn)
 
+	_ = conn.SetReadDeadline(time.Now().Add(15 * time.Second))
 	// Parse initial RTSP request
 	request, err := s.parseRTSPRequestFromReader(reader)
 	if err != nil {
@@ -254,6 +261,16 @@ func (s *RTSPServer) handleConnection(conn net.Conn) {
 		return
 	}
 
+	// Authenticate before camera lookup or cloud signaling.
+	for attempts := 0; !s.authorized(request); attempts++ {
+		if err := s.challenge(conn, request.CSeq); err != nil || attempts >= 2 {
+			return
+		}
+		request, err = s.parseRTSPRequestFromReader(reader)
+		if err != nil {
+			return
+		}
+	}
 	// Extract camera path from URL
 	cameraPath, streamResolution := extractCameraPath(request.URL)
 	if cameraPath == "" {

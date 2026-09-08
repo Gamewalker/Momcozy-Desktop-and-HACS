@@ -1,0 +1,1 @@
+The github.com/mdp/qrterminal v1.0.1 module zip omits a LICENSE. This MIT notice is retained from https://github.com/mdp/qrterminal/blob/70ca5811f8b3161f3edbe31d350af9e551bb4e24/LICENSE (retrieved 2026-09-08).

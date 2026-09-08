@@ -11,12 +11,15 @@ import (
 	"avent-webrtc-bridge/pkg/core"
 )
 
-const VERSION = "0.0.6"
+var VERSION = "0.1.0"
 
 func main() {
 	core.InitLogger()
 	core.Logger = core.Logger.Level(zerolog.InfoLevel)
-	if len(os.Args) == 2 && !strings.HasPrefix(os.Args[1], "-") {
+	if len(os.Args) == 1 {
+		os.Args = append(os.Args, "desktop")
+	}
+	if len(os.Args) == 2 && strings.HasSuffix(strings.ToLower(os.Args[1]), ".json") {
 		data, err := os.ReadFile(os.Args[1])
 		if err != nil {
 			fmt.Println("Cannot read local bridge configuration")

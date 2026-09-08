@@ -1,0 +1,41 @@
+{
+  "title": "Momcozy Bridge",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect a Momcozy camera",
+        "description": "Run the bridge separately. Enter the bridge computer IP, not the camera IP. Credentials are for RTSP, not your Momcozy account.",
+        "data": {
+          "name": "Name",
+          "host": "Bridge host",
+          "port": "RTSP port",
+          "path": "Stream path",
+          "username": "RTSP username",
+          "password": "RTSP password"
+        }
+      },
+      "reconfigure": {
+        "title": "Connect a Momcozy camera",
+        "description": "Run the bridge separately. Enter the bridge computer IP, not the camera IP. Credentials are for RTSP, not your Momcozy account.",
+        "data": {
+          "name": "Name",
+          "host": "Bridge host",
+          "port": "RTSP port",
+          "path": "Stream path",
+          "username": "RTSP username",
+          "password": "RTSP password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No valid RTSP video description received. Check the bridge, firewall, port and path.",
+      "invalid_auth": "RTSP credentials rejected. The bridge must support Basic authentication.",
+      "invalid_config": "Check host, port, path and name. Enter both RTSP credentials or leave both empty."
+    },
+    "abort": {
+      "already_configured": "This bridge endpoint is already configured.",
+      "already_in_progress": "This endpoint is already being configured.",
+      "reconfigure_successful": "Connection settings updated."
+    }
+  }
+}

@@ -53,6 +53,9 @@ Example:
 	cmd.Flags().String("camera-id", "", "Camera device ID")
 	cmd.Flags().String("camera-name", "", "Camera display name (used in RTSP path)")
 	cmd.Flags().Int("port", 8554, "RTSP server port")
+	cmd.Flags().String("listen-host", "127.0.0.1", "RTSP bind IP; non-loopback requires RTSP credentials")
+	cmd.Flags().String("rtsp-user", "", "Local RTSP username (prefer private JSON config)")
+	cmd.Flags().String("rtsp-password", "", "Local RTSP password (prefer private JSON config)")
 	cmd.Flags().Bool("talkback", false, "Ask the camera for two-way audio. Off by default: it makes the camera stop and restart a playing lullaby (issue #72)")
 
 	cmd.MarkFlagRequired("signing-key")
@@ -147,6 +150,9 @@ func runDirect(cmd *cobra.Command, args []string) error {
 	}
 
 	server := rtsp.NewRTSPServer(port, storageManager)
+	server.ListenHost, _ = cmd.Flags().GetString("listen-host")
+	server.Username, _ = cmd.Flags().GetString("rtsp-user")
+	server.Password, _ = cmd.Flags().GetString("rtsp-password")
 	server.MobileClient = client
 	server.Talkback = talkback
 

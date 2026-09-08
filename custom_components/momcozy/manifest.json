@@ -1,0 +1,13 @@
+{
+  "domain": "momcozy",
+  "name": "Momcozy Bridge",
+  "codeowners": ["@Gamewalker"],
+  "config_flow": true,
+  "dependencies": ["ffmpeg", "stream"],
+  "documentation": "https://github.com/Gamewalker/momcozy-desktop/blob/main/docs/HOME_ASSISTANT.md",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/Gamewalker/momcozy-desktop/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
