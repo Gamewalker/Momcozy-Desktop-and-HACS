@@ -48,6 +48,34 @@ Private configuration imports carry credentials and session tokens. They must
 remain local and must not be attached to public issues or release archives.
 Importing a configuration does not guarantee that its session is still valid.
 
+## Live test: account credentials only (2026-09-08)
+
+A fresh, isolated state directory was used with the account email/password.
+No APK, extracted signing configuration, prior Tuya session, or existing bridge
+configuration was supplied. Public protocol constants already present in the
+client were retained; this tests an APK-free installation, not a protocol
+implementation developed without prior reverse engineering.
+
+| Step | Observed result |
+| --- | --- |
+| Fresh Momcozy login | Successful |
+| Momcozy camera discovery | Two cameras returned |
+| OEM account handoff | Returned `region`, `uid` and `token`; no SDK signing configuration |
+| Tuya username-token request without SDK client ID/signature | Rejected with `ILLEGAL_CLIENT_ID` |
+| Same request using the `appKey` returned by Momcozy camera discovery | Also rejected with `ILLEGAL_CLIENT_ID` |
+| New Tuya camera session / decoded stream | Not reached |
+
+The discovery response's `appKey` is therefore not an accepted substitute for
+the SDK client ID in this tested request. Its name alone must not be treated
+as proof that it replaces the extracted SDK parameters. Responses and account
+material were kept private; the test did not reset or re-pair any camera and
+did not change the working desktop or HA configurations.
+
+This is a negative result for the tested direct mobile-API route, not proof
+that every possible APK-free route is impossible. An alternative Momcozy token
+exchange or authorized cloud integration remains unverified. Playback and
+session-renewal tests require such an exchange to succeed first.
+
 ## Official alternatives examined
 
 ### Momcozy pairing and web access
