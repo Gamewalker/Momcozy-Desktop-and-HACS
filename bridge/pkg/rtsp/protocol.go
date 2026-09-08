@@ -602,6 +602,11 @@ func (s *RTSPServer) generateSDP(camera *storage.CameraInfo, baseURL string) str
 	backchannelAudio := audioSdp
 	backchannelAudio += fmt.Sprintf("a=control:%s/backchannel\r\n", baseURL)
 	backchannelAudio += "a=sendonly\r\n"
+	if s.AudioFormat == "aac" {
+		// AAC-LC, 16 kHz mono. RFC 3640 AU headers use 13-bit sizes.
+		audioSdp = "m=audio 0 RTP/AVP 97\r\na=rtpmap:97 MPEG4-GENERIC/16000/1\r\n" +
+			"a=fmtp:97 streamtype=5;profile-level-id=1;mode=AAC-hbr;config=1408;SizeLength=13;IndexLength=3;IndexDeltaLength=3\r\n"
+	}
 
 	audioSdp += fmt.Sprintf("a=control:%s/audio\r\n", baseURL)
 	audioSdp += "a=recvonly\r\n"

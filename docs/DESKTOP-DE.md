@@ -8,7 +8,7 @@ Verbindungsvermittlung benötigen weiterhin die Momcozy-/Tuya-Cloud.
 
 ### Fertige EXE herunterladen
 
-Unter [GitHub Releases](https://github.com/Gamewalker/momcozy-desktop/releases/latest) das Windows-amd64-ZIP herunterladen, entpacken und die enthaltene `momcozy-desktop.exe` starten. F�r die Wiedergabe werden VLC und die eigene private Kamerakonfiguration ben�tigt; Python und Go sind daf�r nicht n�tig. Bei der ersten Einrichtung m�ssen die APK-/Kontoparameter weiterhin wie unten beschrieben vorbereitet oder aus der eigenen Installation �bernommen werden. Details einschlie�lich `--data-dir` stehen in der [Binary-Anleitung](BINARIES.md).
+Unter [GitHub Releases](https://github.com/Gamewalker/momcozy-desktop/releases/latest) das Windows-amd64-ZIP herunterladen, entpacken und die enthaltene `momcozy-desktop.exe` starten. Für die Wiedergabe werden VLC und die eigene private Kamerakonfiguration benötigt; Python und Go sind dafür nicht nötig. Bei der ersten Einrichtung müssen die APK-/Kontoparameter weiterhin wie unten beschrieben vorbereitet oder aus der eigenen Installation übernommen werden. Details einschließlich `--data-dir` stehen in der [Binary-Anleitung](BINARIES.md).
 
 Die folgenden Schritte beschreiben die Einrichtung aus dem Quellcode.
 
@@ -196,5 +196,22 @@ Linux/macOS steht noch aus.
   der Fehlersuche helfen, enthält aber möglicherweise Gerätekennungen. Nicht
   ungeprüft an ein öffentliches Issue hängen.
 
-Die spätere Home-Assistant-Integration ist unter `custom_components/momcozy/`
-vorbereitet. Aktuell ist das Repository noch nicht über HACS installierbar.
+## Home Assistant und Ton
+
+Die Integration ist über HACS als benutzerdefiniertes Repository installierbar;
+siehe [Home-Assistant-Anleitung](HOME_ASSISTANT.md). Die Bridge läuft separat.
+
+Ab Bridge-Version **0.1.1** lässt sich der Ton pro Kamera für HA nach AAC
+umwandeln. FFmpeg auf dem Bridge-Rechner installieren und diese Schlüssel in die
+bestehende `bridge-N.private.json` ergänzen (andere Einträge beibehalten):
+
+```json
+"audio-format": "aac",
+"ffmpeg-path": "C:\\Tools\\ffmpeg\\bin\\ffmpeg.exe"
+```
+
+Unter Linux/macOS den absoluten Pfad aus `command -v ffmpeg` einsetzen.
+Bridge neu starten, HA-Liveansicht schließen und erneut öffnen; im Player den
+Ton einschalten. Adresse und Zugangsdaten in HA bleiben gleich. Zurückstellen
+mit `"audio-format": "copy"` und anschließendem Neustart. `copy` ist der Standard
+und benötigt kein FFmpeg. Nur Audio wird umgewandelt, das Video bleibt unverändert.

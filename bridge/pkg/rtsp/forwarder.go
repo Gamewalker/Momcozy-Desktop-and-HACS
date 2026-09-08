@@ -3,6 +3,7 @@ package rtsp
 import (
 	"avent-webrtc-bridge/pkg/core"
 	"avent-webrtc-bridge/pkg/utils"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -26,6 +27,8 @@ type RTPForwarder struct {
 
 	// RTP session info
 	audioPayloadType uint8
+	audioEncoder     *AudioEncoder
+	audioAAC         bool
 	isHEVC           bool
 	videoSSRC        uint32
 	audioSSRC        uint32
@@ -275,6 +278,10 @@ func (rf *RTPForwarder) RemoveClient(sessionID string) {
 }
 
 func isDeadClientError(err error) bool {
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
 	msg := err.Error()
 	return strings.Contains(msg, "broken pipe") ||
 		strings.Contains(msg, "connection reset by peer") ||
@@ -410,12 +417,38 @@ func (rf *RTPForwarder) forwardVideoData(packet *rtp.Packet) {
 	if len(deadClients) > 0 {
 		for _, id := range deadClients {
 			core.Logger.Info().Msgf("Removing dead video client %s", id)
+			if c := rf.clients[id]; c != nil && c.tcpConn != nil {
+				c.tcpConn.Close()
+			}
 			delete(rf.clients, id)
 		}
 	}
 }
 
 func (rf *RTPForwarder) ForwardAudioPacket(packet *rtp.Packet) {
+	rf.mutex.RLock()
+	encoder, aac := rf.audioEncoder, rf.audioAAC
+	rf.mutex.RUnlock()
+	if aac {
+		if encoder != nil {
+			encoder.Write(packet)
+		}
+		return
+	}
+	rf.forwardAudioPacket(packet)
+}
+
+func (rf *RTPForwarder) stopAudioEncoder() {
+	rf.mutex.Lock()
+	encoder := rf.audioEncoder
+	rf.audioEncoder = nil
+	rf.mutex.Unlock()
+	if encoder != nil {
+		encoder.Close()
+	}
+}
+
+func (rf *RTPForwarder) forwardAudioPacket(packet *rtp.Packet) {
 	rf.mutex.Lock()
 	defer rf.mutex.Unlock()
 
@@ -453,6 +486,10 @@ func (rf *RTPForwarder) ForwardAudioPacket(packet *rtp.Packet) {
 		} else if client.transportMode == TransportTCP {
 			if client.tcpConn != nil {
 				if err := rf.sendInterleavedRTP(client.tcpConn, client.audioRTPChannel, data); err != nil {
+					if isDeadClientError(err) {
+						client.tcpConn.Close()
+						delete(rf.clients, sessionID)
+					}
 					core.Logger.Error().Err(err).Msgf("Error forwarding audio packet to TCP client %s", sessionID)
 				} else if rf.firstAudioPacket {
 					rf.firstAudioPacket = false
@@ -465,6 +502,7 @@ func (rf *RTPForwarder) ForwardAudioPacket(packet *rtp.Packet) {
 }
 
 func (rf *RTPForwarder) Stop() {
+	rf.stopAudioEncoder()
 	// Reset SSRCs
 	rf.videoSSRC = 0
 	rf.audioSSRC = 1
@@ -575,6 +613,12 @@ func (rf *RTPForwarder) sendInterleavedRTP(conn net.Conn, channel byte, rtpData 
 
 	// Send header + data in one write to avoid fragmentation
 	fullPacket := append(header, rtpData...)
+	// A stalled viewer must not indefinitely block encoder shutdown or other
+	// media clients. The forwarder mutex serializes these media writes.
+	if err := conn.SetWriteDeadline(time.Now().Add(time.Second)); err != nil {
+		return err
+	}
+	defer conn.SetWriteDeadline(time.Time{})
 
 	if _, err := conn.Write(fullPacket); err != nil {
 		return err

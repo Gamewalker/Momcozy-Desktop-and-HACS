@@ -54,6 +54,8 @@ Example:
 	cmd.Flags().String("camera-name", "", "Camera display name (used in RTSP path)")
 	cmd.Flags().Int("port", 8554, "RTSP server port")
 	cmd.Flags().String("listen-host", "127.0.0.1", "RTSP bind IP; non-loopback requires RTSP credentials")
+	cmd.Flags().String("audio-format", "copy", "RTSP audio: copy (original G.711) or aac (Home Assistant; requires FFmpeg)")
+	cmd.Flags().String("ffmpeg-path", "ffmpeg", "FFmpeg executable used when audio-format is aac")
 	cmd.Flags().String("rtsp-user", "", "Local RTSP username (prefer private JSON config)")
 	cmd.Flags().String("rtsp-password", "", "Local RTSP password (prefer private JSON config)")
 	cmd.Flags().Bool("talkback", false, "Ask the camera for two-way audio. Off by default: it makes the camera stop and restart a playing lullaby (issue #72)")
@@ -155,6 +157,8 @@ func runDirect(cmd *cobra.Command, args []string) error {
 	server.Password, _ = cmd.Flags().GetString("rtsp-password")
 	server.MobileClient = client
 	server.Talkback = talkback
+	server.AudioFormat, _ = cmd.Flags().GetString("audio-format")
+	server.FFmpegPath, _ = cmd.Flags().GetString("ffmpeg-path")
 
 	if err := server.Start(); err != nil {
 		return fmt.Errorf("failed to start RTSP server: %v", err)

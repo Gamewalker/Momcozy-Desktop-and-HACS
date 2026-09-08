@@ -6,6 +6,19 @@ on:
 permissions:
   contents: read
 jobs:
+  bridge-audio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        with:
+          go-version-file: bridge/go.mod
+          cache-dependency-path: bridge/go.sum
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: go test ./...
+        working-directory: bridge
+        env:
+          MOMCOZY_TEST_FFMPEG: /usr/bin/ffmpeg
   integration:
     runs-on: ubuntu-latest
     steps:

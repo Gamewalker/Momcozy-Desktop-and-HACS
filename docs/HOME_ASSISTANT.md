@@ -129,6 +129,51 @@ details, camera images and credentials. Home Assistant stores RTSP credentials
 in its config entry; protect HA backups. FFmpeg/stream debug logs may include
 authenticated source URLs, so redact them before sharing.
 
+## Optional audio conversion for Home Assistant
+
+BM04 cameras supply G.711 audio. Home Assistant's standard
+[stream player accepts AAC/MP3, not G.711](https://www.home-assistant.io/integrations/stream/).
+With bridge version **0.1.1 or newer**, enable AAC separately for each camera by
+adding these keys to its existing `bridge-N.private.json` on the bridge computer:
+
+```json
+{
+  "audio-format": "aac",
+  "ffmpeg-path": "C:\\Tools\\ffmpeg\\bin\\ffmpeg.exe"
+}
+```
+
+Merge these two keys into the existing object; do not replace the camera's
+credentials or other settings. Use an absolute executable path, especially when
+running the desktop supervisor, whose child working directory is private runtime
+storage. On Linux/macOS use e.g. `/usr/bin/ffmpeg` or the absolute path reported by
+`command -v ffmpeg`. Install FFmpeg separately on the **bridge computer**, not HA:
+Windows builds are linked from [FFmpeg downloads](https://ffmpeg.org/download.html);
+Ubuntu/Debian: `sudo apt install ffmpeg`; macOS with Homebrew: `brew install ffmpeg`.
+FFmpeg is optional and is not bundled or automatically downloaded by the bridge.
+
+Restart the bridge, then close and reopen the HA live view (or reload its Momcozy
+entry if it retains the old stream). The RTSP address and HA configuration stay
+the same. Unmute the HA player; browsers commonly start playback muted.
+
+| Setting | Behavior |
+| --- | --- |
+| `"audio-format": "copy"` (default, also when omitted) | Original G.711 audio, suitable for VLC; no FFmpeg process |
+| `"audio-format": "aac"` | G.711 PCMA/PCMU → AAC-LC, 16 kHz mono, 32 kbit/s for HA |
+| `"ffmpeg-path"` | FFmpeg executable; defaults to `ffmpeg` on PATH |
+
+Direct CLI use also accepts `--audio-format aac --ffmpeg-path /absolute/path/ffmpeg`.
+Only camera audio is converted: H.264/H.265 video passes through unchanged, and
+talkback retains its original codec. One FFmpeg subprocess runs per active
+camera stream/resolution. Media is piped through memory without recordings;
+FFmpeg receives no account or RTSP credentials. Missing FFmpeg or an unsupported
+audio codec produces an error instead of silently claiming AAC support. Encoder
+failure triggers the normal camera reconnection path. The conversion adds audio
+buffering/CPU use and does not improve the source microphone quality.
+
+This setting belongs to the bridge configuration because encoding runs on that
+computer. Updating HACS alone does not update the bridge executable.
+
 ## Implementation and verification
 
 Runtime code is entirely under `custom_components/momcozy/`; no cloud SDK,

@@ -34,6 +34,9 @@ type RTSPServer struct {
 	// Talkback asks the camera for two-way audio on every stream. Off by
 	// default; see WebRTCBridge.Talkback and issue #72.
 	Talkback bool
+	// AudioFormat is copy (default) or aac for Home Assistant's HLS player.
+	AudioFormat string
+	FFmpegPath  string
 }
 
 type RTSPClient struct {
@@ -119,6 +122,9 @@ func (s *RTSPServer) Start() error {
 	}
 
 	if err := s.validateAccess(); err != nil {
+		return err
+	}
+	if err := s.validateAudio(); err != nil {
 		return err
 	}
 	lc := net.ListenConfig{Control: reuseAddrControl}
@@ -505,6 +511,8 @@ func NewCameraStream(camera *storage.CameraInfo, resolution string, user *storag
 	stream.webrtcBridge = NewWebRTCBridge(camera, resolution, user, storageManager)
 	if server != nil {
 		stream.webrtcBridge.Talkback = server.Talkback
+		stream.webrtcBridge.AudioFormat = server.AudioFormat
+		stream.webrtcBridge.FFmpegPath = server.FFmpegPath
 	}
 
 	return stream
@@ -641,6 +649,8 @@ func (cs *CameraStream) replaceBridge() {
 
 	if cs.server != nil {
 		cs.webrtcBridge.Talkback = cs.server.Talkback
+		cs.webrtcBridge.AudioFormat = cs.server.AudioFormat
+		cs.webrtcBridge.FFmpegPath = cs.server.FFmpegPath
 		if cs.server.MobileClient != nil {
 			cs.webrtcBridge.SetMobileClient(cs.server.MobileClient)
 		}

@@ -79,6 +79,11 @@ Stop with **Ctrl+C**. No root privileges are needed.
 
 ## Serve without opening a player
 
+For Home Assistant audio, version 0.1.1 adds optional per-camera
+`"audio-format": "aac"` and `"ffmpeg-path"` settings. This requires a separate
+FFmpeg installation on the bridge computer. See [HA audio configuration](HOME_ASSISTANT.md#optional-audio-conversion-for-home-assistant).
+The default `copy` mode continues to work without FFmpeg.
+
 ```bash
 ./momcozy-desktop desktop --no-player
 ```

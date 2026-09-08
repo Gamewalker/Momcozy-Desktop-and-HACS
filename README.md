@@ -12,6 +12,10 @@ Windows desktop; simultaneous 1920×1080 H.265 video and G.711 A-law audio.
 The cloud is still required for authentication and signaling. This is not an
 offline RTSP firmware replacement or an official Momcozy product.
 
+For Home Assistant sound, enable optional [AAC audio conversion](docs/HOME_ASSISTANT.md#optional-audio-conversion-for-home-assistant)
+in the bridge's private camera configuration (bridge 0.1.1+, separate FFmpeg
+installation). Original audio passthrough remains the default; video is unchanged.
+
 ## Contents
 
 - `bridge/`: Go WebRTC-to-RTSP bridge, adapted from aventproxy.

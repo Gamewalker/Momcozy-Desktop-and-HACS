@@ -64,7 +64,9 @@ type WebRTCBridge struct {
 	// take the speaker and stop whatever lullaby is playing, then restart it
 	// with a fresh timer when the stream closes (issue #72). Watching must not
 	// disturb the room, so the caller opts in.
-	Talkback bool
+	Talkback    bool
+	AudioFormat string
+	FFmpegPath  string
 
 	// Callbacks
 	OnVideoPacket func(packet *rtp.Packet)
@@ -226,6 +228,32 @@ func (wb *WebRTCBridge) Start() error {
 	if len(skill.Audios) > 0 && skill.Audios[0].CodecType == 106 {
 		wb.rtpForwarder.audioPayloadType = 8
 	}
+	if wb.AudioFormat == "aac" {
+		if len(skill.Audios) == 0 || (skill.Audios[0].CodecType != 105 && skill.Audios[0].CodecType != 106) {
+			return errors.New("AAC conversion requires an advertised G.711 PCMA or PCMU audio track")
+		}
+		encoder, err := NewAudioEncoder(wb.FFmpegPath, skill.Audios[0].CodecType == 106, wb.rtpForwarder.forwardAudioPacket)
+		if err != nil {
+			return fmt.Errorf("cannot start AAC audio encoder: %w", err)
+		}
+		wb.rtpForwarder.mutex.Lock()
+		wb.rtpForwarder.audioEncoder = encoder
+		wb.rtpForwarder.audioPayloadType = 97
+		wb.rtpForwarder.audioAAC = true
+		wb.rtpForwarder.mutex.Unlock()
+		go func() {
+			<-encoder.Done()
+			if err := encoder.Err(); err != nil {
+				core.Logger.Error().Err(err).Msg("AAC audio encoder failed")
+				wb.handleError(err)
+			}
+		}()
+		defer func() {
+			if !wb.connected {
+				wb.rtpForwarder.stopAudioEncoder()
+			}
+		}()
+	}
 
 	core.Logger.Info().Msgf("Stream settings - Resolution: %s, Type: %d, HEVC: %v", wb.resolution, wb.streamType, wb.isHEVC)
 
@@ -266,6 +294,7 @@ func (wb *WebRTCBridge) Start() error {
 func (wb *WebRTCBridge) Stop() {
 	wb.mutex.Lock()
 	defer wb.mutex.Unlock()
+	wb.rtpForwarder.stopAudioEncoder()
 
 	if !wb.connected {
 		return
