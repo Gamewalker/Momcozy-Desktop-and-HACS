@@ -1,0 +1,26 @@
+from state import DATA
+import json
+import urllib.request
+from pathlib import Path
+from momcozy_login import NoRedirect
+root = DATA
+session = json.loads((root / 'direct-session.private.json').read_text())
+request = urllib.request.Request(session['base'] + '/api/app/device/queryDevices?pageNum=1&pageSize=50', headers={
+    'authorization': 'Bearer ' + session['login']['token'],
+    'Client': 'Android', 'Version': '3.3.0', 'X-COZY-APPID': 'momcozy-0719', 'CountryCode': 'DE'})
+opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+with opener.open(request, timeout=20) as response:
+    result = json.load(response)
+(root / 'devices.private.json').write_text(json.dumps(result), encoding='utf-8')
+print('Response code:', result.get('code'))
+def structure(value, depth=0):
+    if depth > 3:
+        return
+    if isinstance(value, dict):
+        for key, item in value.items():
+            print('  '*depth + key + ': ' + type(item).__name__)
+            structure(item, depth+1)
+    elif isinstance(value, list):
+        print('  '*depth + 'count: ' + str(len(value)))
+        if value: structure(value[0], depth+1)
+structure(result.get('result'))
