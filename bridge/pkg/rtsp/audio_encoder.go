@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"strconv"
 	"sync"
 
 	"github.com/pion/rtp"
@@ -19,33 +20,43 @@ const maxAudioInput = 4096
 // emit must return promptly and must not call Close from inside the callback.
 // A full input queue stops encoding instead of silently accumulating audio drift.
 type AudioEncoder struct {
-	cmd            *exec.Cmd
-	input          io.WriteCloser
-	output         io.ReadCloser
-	queue          chan *rtp.Packet
-	done           chan struct{}
-	once           sync.Once
-	wg             sync.WaitGroup
-	mu             sync.Mutex
-	err            error
-	firstTimestamp uint32
-	ssrc           uint32
-	started        bool
-	emit           func(*rtp.Packet)
-	cleanup        func()
-	silence        byte
+	cmd             *exec.Cmd
+	input           io.WriteCloser
+	output          io.ReadCloser
+	queue           chan *rtp.Packet
+	done            chan struct{}
+	once            sync.Once
+	wg              sync.WaitGroup
+	mu              sync.Mutex
+	err             error
+	firstTimestamp  uint32
+	ssrc            uint32
+	started         bool
+	emit            func(*rtp.Packet)
+	cleanup         func()
+	silence         byte
+	inputSampleRate int
 }
 
 func NewAudioEncoder(ffmpegPath string, alaw bool, emit func(*rtp.Packet)) (*AudioEncoder, error) {
+	return NewAudioEncoderAtRate(ffmpegPath, alaw, 8000, emit)
+}
+
+// NewAudioEncoderAtRate distinguishes the G.711 sample rate from the fixed
+// 8 kHz source RTP clock. BM04 sends 16 kHz samples using that 8 kHz clock.
+func NewAudioEncoderAtRate(ffmpegPath string, alaw bool, inputSampleRate int, emit func(*rtp.Packet)) (*AudioEncoder, error) {
+	if inputSampleRate != 8000 && inputSampleRate != 16000 {
+		return nil, errors.New("AAC encoder input sample rate must be 8000 or 16000")
+	}
 	format := "mulaw"
 	if alaw {
 		format = "alaw"
 	}
 	cmd := exec.Command(ffmpegPath, "-hide_banner", "-loglevel", "error", "-nostdin",
-		"-probesize", "32", "-analyzeduration", "0", "-f", format, "-ar", "8000", "-ac", "1", "-i", "pipe:0",
+		"-probesize", "32", "-analyzeduration", "0", "-f", format, "-ar", strconv.Itoa(inputSampleRate), "-ac", "1", "-i", "pipe:0",
 		"-vn", "-c:a", "aac", "-profile:a", "aac_low", "-ar", "16000", "-ac", "1", "-b:a", "32k",
 		"-flush_packets", "1", "-f", "adts", "pipe:1")
-	a, err := startAudioEncoder(cmd, emit)
+	a, err := startAudioEncoderAtRate(cmd, inputSampleRate, emit)
 	if err == nil {
 		a.silence = 0xff
 		if alaw {
@@ -56,6 +67,10 @@ func NewAudioEncoder(ffmpegPath string, alaw bool, emit func(*rtp.Packet)) (*Aud
 }
 
 func startAudioEncoder(cmd *exec.Cmd, emit func(*rtp.Packet)) (*AudioEncoder, error) {
+	return startAudioEncoderAtRate(cmd, 8000, emit)
+}
+
+func startAudioEncoderAtRate(cmd *exec.Cmd, inputSampleRate int, emit func(*rtp.Packet)) (*AudioEncoder, error) {
 	if emit == nil {
 		return nil, errors.New("AAC encoder needs an output callback")
 	}
@@ -84,7 +99,7 @@ func startAudioEncoder(cmd *exec.Cmd, emit func(*rtp.Packet)) (*AudioEncoder, er
 		output.Close()
 		return nil, errors.New("cannot supervise FFmpeg AAC encoder")
 	}
-	a := &AudioEncoder{cmd: cmd, input: input, output: output, queue: make(chan *rtp.Packet, audioQueueSize), done: make(chan struct{}), emit: emit, cleanup: cleanup}
+	a := &AudioEncoder{cmd: cmd, input: input, output: output, queue: make(chan *rtp.Packet, audioQueueSize), done: make(chan struct{}), emit: emit, cleanup: cleanup, inputSampleRate: inputSampleRate}
 	a.wg.Add(2)
 	go a.writeLoop()
 	go a.readLoop()
@@ -147,6 +162,14 @@ func (a *AudioEncoder) writeLoop() {
 		case <-a.done:
 			return
 		case p := <-a.queue:
+			samplesPerTick := a.inputSampleRate / 8000
+			if samplesPerTick == 0 {
+				samplesPerTick = 1
+			}
+			if len(p.Payload)%samplesPerTick != 0 {
+				a.stop(errors.New("AAC encoder packet has incomplete RTP clock interval"))
+				return
+			}
 			if !started {
 				expected = p.Timestamp
 				started = true
@@ -162,7 +185,7 @@ func (a *AudioEncoder) writeLoop() {
 				return
 			}
 			if delta > 0 {
-				if _, err := a.input.Write(bytes.Repeat([]byte{a.silence}, int(delta))); err != nil {
+				if _, err := a.input.Write(bytes.Repeat([]byte{a.silence}, int(delta)*samplesPerTick)); err != nil {
 					a.stop(errors.New("AAC encoder input closed"))
 					return
 				}
@@ -171,7 +194,7 @@ func (a *AudioEncoder) writeLoop() {
 				a.stop(errors.New("AAC encoder input closed"))
 				return
 			}
-			expected = p.Timestamp + uint32(len(p.Payload))
+			expected = p.Timestamp + uint32(len(p.Payload)/samplesPerTick)
 		}
 	}
 }

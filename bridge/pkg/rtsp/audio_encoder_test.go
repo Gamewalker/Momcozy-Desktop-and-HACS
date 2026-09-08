@@ -188,3 +188,65 @@ func TestAudioEncoderPreservesClockAcrossLossAndRollover(t *testing.T) {
 		}
 	}
 }
+
+func TestAudioEncoder16kClockAndGap(t *testing.T) {
+	r := recordingAudioInput{writes: make(chan []byte, 8)}
+	a := &AudioEncoder{input: r, queue: make(chan *rtp.Packet, 8), done: make(chan struct{}), silence: 0xd5, inputSampleRate: 16000}
+	a.wg.Add(1)
+	go a.writeLoop()
+	defer func() { close(a.done); a.wg.Wait() }()
+	first, second := bytes.Repeat([]byte{1}, 256), bytes.Repeat([]byte{2}, 256)
+	a.queue <- &rtp.Packet{Header: rtp.Header{Timestamp: 8000}, Payload: first}
+	a.queue <- &rtp.Packet{Header: rtp.Header{Timestamp: 8128}, Payload: second}
+	a.queue <- &rtp.Packet{Header: rtp.Header{Timestamp: 8384}, Payload: first}
+	for _, want := range [][]byte{first, second, bytes.Repeat([]byte{0xd5}, 256), first} {
+		select {
+		case got := <-r.writes:
+			if !bytes.Equal(got, want) {
+				t.Fatalf("write length=%d want=%d", len(got), len(want))
+			}
+		case <-time.After(time.Second):
+			t.Fatal("16k samples discarded")
+		}
+	}
+}
+
+func TestAudioEncoderRejectsUnsupportedSampleRate(t *testing.T) {
+	for _, rate := range []int{0, 44100, -1} {
+		if _, err := NewAudioEncoderAtRate("unused-ffmpeg", true, rate, func(*rtp.Packet) {}); err == nil {
+			t.Fatalf("accepted sample rate %d", rate)
+		}
+	}
+}
+
+func TestAudioEncoderFFmpeg16k(t *testing.T) {
+	path := os.Getenv("MOMCOZY_TEST_FFMPEG")
+	if path == "" {
+		t.Skip("set MOMCOZY_TEST_FFMPEG for real codec test")
+	}
+	packets := make(chan *rtp.Packet, 256)
+	a, err := NewAudioEncoderAtRate(path, true, 16000, func(p *rtp.Packet) { packets <- p })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+	// 65,536 samples must yield roughly 64 AAC frames, not 32. This catches
+	// mistaking 256 payload samples for 256 ticks and dropping alternate packets.
+	for i := range 256 {
+		a.Write(&rtp.Packet{Header: rtp.Header{Timestamp: uint32(8000 + i*128), SSRC: 12}, Payload: bytes.Repeat([]byte{0xd5}, 256)})
+		time.Sleep(4 * time.Millisecond)
+	}
+	deadline := time.After(4 * time.Second)
+	for count := 0; count < 55; count++ {
+		select {
+		case p := <-packets:
+			if p.Timestamp != uint32(16000+(count-1)*1024) {
+				t.Fatalf("timestamp %d at frame %d", p.Timestamp, count)
+			}
+		case <-a.Done():
+			t.Fatalf("FFmpeg failed: %v", a.Err())
+		case <-deadline:
+			t.Fatalf("only %d AAC frames; input samples lost", count)
+		}
+	}
+}

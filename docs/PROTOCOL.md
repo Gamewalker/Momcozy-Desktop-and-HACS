@@ -39,6 +39,23 @@ The RTSP description must contain the camera's actual codecs before the player
 sets up its tracks. Sending RTP before the RTSP PLAY response can break client
 negotiation. These two problems were reproduced and corrected.
 
+### BM04 audio timing and AAC conversion
+
+The tested BM04 capability response reports `codecType: 106`, `sampleRate: 16000`,
+`channels: 1`. The audio payloads contain 256 A-law bytes (256 samples), while
+the source RTP timestamp advances by 128: the source uses an 8 kHz RTP clock
+for 16 kHz PCM samples. These are distinct rates. Bridge 0.1.2 passes the declared
+sample rate to FFmpeg and converts payload lengths to source clock ticks when
+checking packet continuity. Output AAC uses 16 kHz timestamps.
+
+Version 0.1.1 incorrectly assumed 8 kHz input samples and treated alternating
+valid BM04 packets as duplicates. That spliced audio and could create clicks.
+Regression tests now cover 256-byte/128-tick packets and both input sample rates.
+This correction applies to the optional AAC path; legacy G.711 passthrough is
+unchanged. Missing sample-rate metadata defaults to 8 kHz; unsupported rates
+are rejected instead of guessed. Low-level microphone or environmental noise
+is not removed by codec conversion.
+
 Cloud authentication and signaling remain required. Whether ICE chooses a
 direct route or relay depends on connectivity; this project does not establish
 that the cameras can operate offline. A discovered Tuya local key is not an

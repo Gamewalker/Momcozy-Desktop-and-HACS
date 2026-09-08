@@ -232,7 +232,11 @@ func (wb *WebRTCBridge) Start() error {
 		if len(skill.Audios) == 0 || (skill.Audios[0].CodecType != 105 && skill.Audios[0].CodecType != 106) {
 			return errors.New("AAC conversion requires an advertised G.711 PCMA or PCMU audio track")
 		}
-		encoder, err := NewAudioEncoder(wb.FFmpegPath, skill.Audios[0].CodecType == 106, wb.rtpForwarder.forwardAudioPacket)
+		inputRate := skill.Audios[0].SampleRate
+		if inputRate == 0 {
+			inputRate = 8000
+		}
+		encoder, err := NewAudioEncoderAtRate(wb.FFmpegPath, skill.Audios[0].CodecType == 106, inputRate, wb.rtpForwarder.forwardAudioPacket)
 		if err != nil {
 			return fmt.Errorf("cannot start AAC audio encoder: %w", err)
 		}

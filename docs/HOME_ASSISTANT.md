@@ -143,6 +143,11 @@ adding these keys to its existing `bridge-N.private.json` on the bridge computer
 }
 ```
 
+Use **0.1.2 or newer** for BM04: it corrects the distinction between the
+camera's 16 kHz audio samples and its 8 kHz RTP clock. Version 0.1.1 could
+discard valid audio packets and cause clicking. Conversion does not remove
+background noise already present at the microphone.
+
 Merge these two keys into the existing object; do not replace the camera's
 credentials or other settings. Use an absolute executable path, especially when
 running the desktop supervisor, whose child working directory is private runtime
