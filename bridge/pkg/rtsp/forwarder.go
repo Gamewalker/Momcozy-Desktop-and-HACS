@@ -29,6 +29,7 @@ type RTPForwarder struct {
 	audioPayloadType uint8
 	audioEncoder     *AudioEncoder
 	audioAAC         bool
+	audioClockScale  uint32
 	isHEVC           bool
 	videoSSRC        uint32
 	audioSSRC        uint32
@@ -458,6 +459,10 @@ func (rf *RTPForwarder) forwardAudioPacket(packet *rtp.Packet) {
 
 	packet = packet.Clone()
 	packet.PayloadType = rf.audioPayloadType
+	// AAC already uses its output clock; scale only original BM04 G.711.
+	if !rf.audioAAC && rf.audioClockScale > 1 {
+		packet.Timestamp *= rf.audioClockScale
+	}
 
 	// Serialize packet
 	data, err := packet.Marshal()

@@ -93,7 +93,11 @@ Stop with **Ctrl+C**. No root privileges are needed.
 For Home Assistant audio, use version 0.1.2 or newer with per-camera
 `"audio-format": "aac"` and `"ffmpeg-path"` settings. This requires a separate
 FFmpeg installation on the bridge computer. See [HA audio configuration](HOME_ASSISTANT.md#optional-audio-conversion-for-home-assistant).
-The default `copy` mode continues to work without FFmpeg.
+For VLC, use **0.3.1 or newer** with `"audio-format": "copy"` to play original
+BM04 audio without FFmpeg. Version 0.3.1 fixes the sample-rate/timestamp mismatch
+that could leave VLC silent in earlier versions. Existing private configurations
+remain compatible; replace the package and restart the bridge and VLC.
+AAC remains available and is the supported choice for Home Assistant.
 
 ```bash
 ./momcozy-desktop desktop --no-player

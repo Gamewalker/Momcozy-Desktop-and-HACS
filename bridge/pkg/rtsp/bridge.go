@@ -225,9 +225,9 @@ func (wb *WebRTCBridge) Start() error {
 	wb.streamType = tuya.GetStreamType(&skill, wb.resolution)
 	wb.isHEVC = tuya.IsHEVC(&skill, wb.streamType)
 	wb.rtpForwarder.isHEVC = wb.isHEVC
-	if len(skill.Audios) > 0 && skill.Audios[0].CodecType == 106 {
-		wb.rtpForwarder.audioPayloadType = 8
-	}
+	payload, rate, _ := copyAudioDescription(&skill)
+	wb.rtpForwarder.audioPayloadType = payload
+	wb.rtpForwarder.audioClockScale = uint32(rate / 8000)
 	if wb.AudioFormat == "aac" {
 		if len(skill.Audios) == 0 || (skill.Audios[0].CodecType != 105 && skill.Audios[0].CodecType != 106) {
 			return errors.New("AAC conversion requires an advertised G.711 PCMA or PCMU audio track")

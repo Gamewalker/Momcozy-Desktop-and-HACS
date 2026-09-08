@@ -61,7 +61,10 @@ Use bridge **0.1.2 or newer**. In each existing private camera JSON, set
 the bridge, reload the HA camera entry and unmute the player.
 
 AAC conversion changes only audio; video passes through unchanged. The default
-`"audio-format": "copy"` keeps the original G.711 path and needs no FFmpeg.
+`"audio-format": "copy"` keeps the original G.711 samples and needs no FFmpeg.
+Use **0.3.1 or newer for VLC original audio**: earlier versions incorrectly
+advertised BM04 16 kHz audio as 8 kHz, causing continuous playback timing errors.
+Version 0.3.1 corrects the RTSP sample rate and RTP timestamps without transcoding.
 See [complete audio configuration](docs/HOME_ASSISTANT.md#optional-audio-conversion-for-home-assistant).
 Version 0.1.2 fixes the BM04 timing issue that caused clicking in 0.1.1.
 

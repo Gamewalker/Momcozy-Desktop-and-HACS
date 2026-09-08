@@ -2,6 +2,8 @@ package rtsp
 
 import (
 	"avent-webrtc-bridge/pkg/storage"
+	"avent-webrtc-bridge/pkg/tuya"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -42,5 +44,35 @@ func TestAACSDPAndBridgePropagation(t *testing.T) {
 	sdp = s.generateSDP(camera, "rtsp://localhost:8554/test")
 	if strings.Contains(sdp, "MPEG4-GENERIC") || !strings.Contains(sdp, "PCMA/8000") {
 		t.Fatal("copy mode changed the original codec")
+	}
+}
+
+// BM04 emits 256 G.711 samples per 128 source RTP ticks. Advertising
+// 8 kHz makes VLC continuously restart its audio resampler during playback.
+func TestBM04CopyAudioSampleRate(t *testing.T) {
+	camera := &storage.CameraInfo{Skill: `{"audios":[{"codecType":106,"sampleRate":16000}]}`}
+	s := &RTSPServer{AudioFormat: "copy"}
+	sdp := s.generateSDP(camera, "rtsp://localhost/test")
+	if !strings.Contains(sdp, "a=rtpmap:98 PCMA/16000/1") {
+		t.Fatal("BM04 copy audio must advertise its actual sample rate with a dynamic payload type")
+	}
+}
+
+func TestCopyAudioPayloadMatchesSDP(t *testing.T) {
+	for _, codec := range []int{105, 106} {
+		for _, rate := range []int{0, 8000, 16000} {
+			skill := &tuya.Skill{Audios: []tuya.AudioSkill{{CodecType: codec, SampleRate: rate}}}
+			payload, clock, sdp := copyAudioDescription(skill)
+			if !strings.Contains(sdp, fmt.Sprintf("a=rtpmap:%d ", payload)) {
+				t.Fatal("payload mapping mismatch")
+			}
+			if rate == 16000 {
+				if payload < 96 || clock != 16000 || !strings.Contains(sdp, "/16000/1") {
+					t.Fatal("16 kHz requires dynamic payload and matching clock")
+				}
+			} else if clock != 8000 || (codec == 105 && payload != 0) || (codec == 106 && payload != 8) {
+				t.Fatal("legacy mapping changed")
+			}
+		}
 	}
 }

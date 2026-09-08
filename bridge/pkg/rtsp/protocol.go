@@ -574,32 +574,18 @@ func (s *RTSPServer) generateSDP(camera *storage.CameraInfo, baseURL string) str
 	videoSdp += fmt.Sprintf("a=control:%s/video\r\n", baseURL)
 	videoSdp += "a=recvonly\r\n"
 
-	// Audio media description based on skill
-	if skill != nil && len(skill.Audios) > 0 {
-		audioInfo := skill.Audios[0] // Nehme ersten audio stream
+	_, _, audioSdp = copyAudioDescription(skill)
 
-		switch audioInfo.CodecType {
-		// case 101: // PCML
-		// 	audioSdp += "m=audio 0 RTP/AVP 97\r\n"
-		// 	audioSdp += "a=rtpmap:97 L16/8000\r\n"
-		case 101, 105: // PCML and PCMU
-			audioSdp += "m=audio 0 RTP/AVP 0\r\n"
-			audioSdp += "a=rtpmap:0 PCMU/8000\r\n"
-		case 106: // PCMA
-			audioSdp += "m=audio 0 RTP/AVP 8\r\n"
-			audioSdp += "a=rtpmap:8 PCMA/8000\r\n"
-		default:
-			// Fallback
-			audioSdp += "m=audio 0 RTP/AVP 0\r\n"
-			audioSdp += "a=rtpmap:0 PCMU/8000\r\n"
+	// Talkback retains the camera-facing 8 kHz RTP clock.
+	var backSkill tuya.Skill
+	if skill != nil {
+		backSkill = *skill
+		backSkill.Audios = append([]tuya.AudioSkill(nil), skill.Audios...)
+		if len(backSkill.Audios) > 0 {
+			backSkill.Audios[0].SampleRate = 8000
 		}
-	} else {
-		// Fallback in case no audio stream is found
-		audioSdp += "m=audio 0 RTP/AVP 0\r\n"
-		audioSdp += "a=rtpmap:0 PCMU/8000\r\n"
 	}
-
-	backchannelAudio := audioSdp
+	_, _, backchannelAudio := copyAudioDescription(&backSkill)
 	backchannelAudio += fmt.Sprintf("a=control:%s/backchannel\r\n", baseURL)
 	backchannelAudio += "a=sendonly\r\n"
 	if s.AudioFormat == "aac" {

@@ -62,7 +62,8 @@ steps. See [Home Assistant instructions](HOME_ASSISTANT.md).
 
 Select AAC for HA sound and supply the FFmpeg executable path. FFmpeg is not
 bundled; video is passed through unchanged. Original audio (`copy`) needs no
-FFmpeg but is not the supported HA audio path. The bridge computer must remain
+FFmpeg; use bridge 0.3.1 or newer for correct BM04 audio timing in VLC. It is not
+the supported HA audio path. The bridge computer must remain
 running and awake. Setup does not install an automatic service.
 
 ## If setup cannot complete
