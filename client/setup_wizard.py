@@ -14,14 +14,10 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+from setup_errors import SetupError
 
 SCRIPTS = {"prepare_apk", "decode_tuya_key", "momcozy_login", "tuya_login",
            "list_momcozy_devices", "tuya_camera_info", "make_bridge_config"}
-
-
-class SetupError(Exception):
-    def __init__(self, code, message):
-        self.code, self.message = code, message
 
 
 def script_command(name, *args):
@@ -160,6 +156,9 @@ def refuse_existing_cameras(data):
 def handle(request):
     command = request.get("command")
     if command == "selfTest":
+        from goopdl.profiles import get_priority_profiles
+        from goopdl.browser_oauth import capture_oauth_credentials
+        from importlib.metadata import version
         from unicorn import Uc, UC_ARCH_ARM64, UC_MODE_ARM, UC_HOOK_CODE
         from unicorn.arm64_const import UC_ARM64_REG_X0
         from androguard.core.apk import APK
@@ -177,10 +176,12 @@ def handle(request):
         emulator.emu_start(0x10000, 0x10008)
         if emulator.reg_read(UC_ARM64_REG_X0) != 42:
             raise SetupError("self_test_failed", "The native setup runtime did not pass its test.")
-        return {"ok": True, "nativeRuntime": True}
+        if version("goopdl") != "1.2.1" or not get_priority_profiles("arm64"):
+            raise SetupError("self_test_failed", "The Google Play downloader runtime is incomplete.")
+        return {"ok": True, "nativeRuntime": True, "googlePlayRuntime": True}
     if command == "discover":
         return {"ok": True, "devices": devices(request)}
-    if command not in {"prepareAndroid", "prepareApks", "importSigning", "importConfig", "configure"}:
+    if command not in {"prepareAndroid", "prepareApks", "preparePlay", "importSigning", "importConfig", "configure"}:
         raise SetupError("invalid_request", "Unknown setup command.")
     data = Path(request["dataDir"]).expanduser().resolve()
     private_dir(data)
@@ -188,6 +189,8 @@ def handle(request):
     with tempfile.TemporaryDirectory(prefix=".setup-", dir=data) as temp:
         stage = Path(temp)
         private_dir(stage)
+        if command == "preparePlay":
+            refuse_existing_cameras(data)
         if command == "importConfig":
             refuse_existing_cameras(data)
             source = Path(request["configDir"]).expanduser().resolve()
@@ -219,9 +222,13 @@ def handle(request):
             (stage / "cameras.private.json").write_text(json.dumps(manifest), encoding="utf-8")
             os.replace(stage / "cameras.private.json", data / "cameras.private.json")
             return {"ok": True, "cameraCount": len(manifest), "dataDir": str(data), "cameras": cameras}
-        if command in {"prepareAndroid", "prepareApks"}:
-            base, arm = pull_apks(request, stage) if command == "prepareAndroid" else (
-                Path(request["baseApk"]).resolve(), Path(request["arm64Apk"]).resolve())
+        if command in {"prepareAndroid", "prepareApks", "preparePlay"}:
+            if command == "preparePlay":
+                from play_download import acquire
+                base, arm = acquire(request, stage)
+            else:
+                base, arm = pull_apks(request, stage) if command == "prepareAndroid" else (
+                    Path(request["baseApk"]).resolve(), Path(request["arm64Apk"]).resolve())
             run_script("prepare_apk", stage, base, arm)
         elif command == "importSigning":
             config = json.loads(Path(request["signingPath"]).read_text(encoding="utf-8-sig"))
@@ -270,7 +277,7 @@ def main():
             raise SystemExit(1)
         return
     if sys.argv[1:] == ["--help"]:
-        print("Momcozy setup helper: send one JSON request on stdin. Commands: discover, prepareAndroid, prepareApks, importSigning, importConfig, configure.")
+        print("Momcozy setup helper: send one JSON request on stdin. Commands: discover, prepareAndroid, prepareApks, preparePlay, importSigning, importConfig, configure.")
         return
     if len(sys.argv) > 1 and sys.argv[1] == "--internal":
         if getattr(sys, "frozen", False):

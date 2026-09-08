@@ -33,6 +33,11 @@ access remains necessary in the verified implementation.
 
 ## Routes and current evidence
 
+The development setup assistant now implements direct Google Play acquisition
+through goopdl with desktop browser authentication. See
+[Google Play setup](GOOGLE_PLAY.md) for availability and validation status.
+It eliminates Android hardware from acquisition while still using APK material.
+
 | Route | Connected phone needed? | Status and remaining constraint |
 | --- | --- | --- |
 | Import own existing bridge configuration | No | Existing playback route. Import the camera manifest and its private bridge files; session expiry can still require login again. |

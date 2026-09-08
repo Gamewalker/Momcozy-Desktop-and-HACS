@@ -33,6 +33,10 @@ account flow currently covers DE/EU accounts.
 
 ## Choose an input
 
+Development builds also offer an experimental **Google Play download** with
+desktop Google sign-in, requiring no Android device. It is not in the 0.2.0
+release. See [Google Play setup and limitations](GOOGLE_PLAY.md).
+
 | Input | What to provide |
 | --- | --- |
 | Connected Android phone | Momcozy app 3.3.0 installed, USB debugging enabled and the computer authorized on the phone. Use the assistant's official Android Platform Tools download option if ADB is missing. |

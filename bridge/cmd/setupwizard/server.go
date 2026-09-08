@@ -188,7 +188,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch command {
-	case "discover", "prepareAndroid", "prepareApks", "importSigning", "importConfig", "configure":
+	case "discover", "prepareAndroid", "prepareApks", "preparePlay", "importSigning", "importConfig", "configure":
 	default:
 		http.Error(w, "Unknown action", 400)
 		return
@@ -198,7 +198,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			input["adbPath"] = findAdb(input["dataDir"].(string))
 		}
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Minute)
 	defer cancel()
 	result := invokeHelper(ctx, s.helper, input)
 	if ok, _ := result["ok"].(bool); ok && (command == "configure" || command == "importConfig") {

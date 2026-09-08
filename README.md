@@ -10,6 +10,9 @@ signaling and serves RTSP video and audio to VLC or Home Assistant.
 [Setup assistant](docs/SETUP.md) ·
 [Home Assistant / HACS](docs/HOME_ASSISTANT.md)
 
+Development builds add [Google Play download without an Android device](docs/GOOGLE_PLAY.md)
+through desktop Google sign-in. This experimental option is not in release 0.2.0.
+
 ## Choose your setup
 
 | Goal | What you need | Instructions |

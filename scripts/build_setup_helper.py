@@ -108,6 +108,7 @@ def main():
         # Importing every androguard submodule loads its optional Frida CLI.
         # APK parsing needs core.apk and packaged resources only.
         command += ["--collect-data", "androguard", "--hidden-import", "androguard.core.apk"]
+        command += ["--collect-data", "goopdl", "--copy-metadata", "goopdl"]
         for package in ("unicorn", "elftools", "cryptography", "argon2"):
             command += ["--collect-all", package]
         command.append(str(ROOT / "client/setup_wizard.py"))

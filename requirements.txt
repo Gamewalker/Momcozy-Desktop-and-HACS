@@ -3,4 +3,5 @@ cryptography==50.0.0
 androguard==4.1.4
 pyelftools==0.33
 unicorn==2.1.4
+goopdl==1.2.1
 
