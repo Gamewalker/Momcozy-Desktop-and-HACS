@@ -46,11 +46,11 @@ jobs:
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 (Node.js 24)
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0 (Node.js 24)
         with:
           python-version: '3.12'
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0 (Node.js 24)
         with:
           go-version-file: bridge/go.mod
           cache-dependency-path: bridge/go.sum
@@ -80,13 +80,13 @@ jobs:
           python scripts/release.py --version "$version" --target '${{ matrix.goTarget }}' --setup-helper artifacts/setup-helper --output release --verify-native
       # Tar preserves executable permissions through artifact upload/download.
       - run: tar -czf setup-helper-${{ matrix.target }}.tar.gz -C artifacts setup-helper
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1 (Node.js 24)
         with:
           name: setup-helper-${{ matrix.target }}
           path: setup-helper-${{ matrix.target }}.tar.gz
           if-no-files-found: error
           retention-days: 14
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1 (Node.js 24)
         with:
           name: desktop-with-setup-${{ matrix.target }}
           path: release/*
