@@ -101,14 +101,14 @@ class PlayDownloadTests(unittest.TestCase):
             purchase.assert_not_called()
 
     def test_base_and_arm64_selection_ignores_remote_filenames(self):
-        # Catalog latest may differ; delivery and manifest must still be pinned.
-        details = AppDetails(play.PACKAGE, version_string="9.9.9", version_code=99999)
-        delivery = DeliveryResult(version_code=play.VERSION_CODE, splits=[SplitInfo("../../arm64"), SplitInfo("config.en")])
+        # Latest catalog version is requested and confirmed against the APK manifest.
+        details = AppDetails(play.PACKAGE, version_string="3.4.0", version_code=30402)
+        delivery = DeliveryResult(version_code=30402, splits=[SplitInfo("../../arm64"), SplitInfo("config.en")])
         def download(spec, dest, *args):
             with zipfile.ZipFile(dest, "w") as archive:
                 archive.writestr(play.NATIVE if dest.name == "play-arm64.apk" else "AndroidManifest.xml", b"fixture")
-        parsed = SimpleNamespace(get_package=lambda: play.PACKAGE, get_androidversion_name=lambda: play.VERSION,
-                                 get_androidversion_code=lambda: str(play.VERSION_CODE))
+        parsed = SimpleNamespace(get_package=lambda: play.PACKAGE, get_androidversion_name=lambda: "3.4.0",
+                                 get_androidversion_code=lambda: str(30402))
         with tempfile.TemporaryDirectory() as temp, patch.object(play, "authenticate", return_value={}), \
                 patch("goopdl.api.get_details", return_value=details), patch("goopdl.api.purchase", return_value="delivery") as purchase, \
                 patch("goopdl.api.get_delivery", return_value=delivery) as get_delivery, patch.object(play, "download_file", side_effect=download), \
@@ -117,8 +117,8 @@ class PlayDownloadTests(unittest.TestCase):
             self.assertEqual(base.name, "play-base.apk")
             self.assertEqual(arm.name, "play-arm64.apk")
             self.assertEqual(set(p.name for p in Path(temp).iterdir()), {base.name, arm.name})
-            self.assertEqual(purchase.call_args.args[1], play.VERSION_CODE)
-            self.assertEqual(get_delivery.call_args.args[1], play.VERSION_CODE)
+            self.assertEqual(purchase.call_args.args[1], 30402)
+            self.assertEqual(get_delivery.call_args.args[1], 30402)
 
     def test_failed_play_setup_keeps_signing_and_cleans_temporary_files(self):
         with tempfile.TemporaryDirectory() as temp:

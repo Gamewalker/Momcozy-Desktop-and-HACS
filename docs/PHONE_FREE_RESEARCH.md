@@ -1,7 +1,8 @@
 # Setup without a connected Android phone
 
 Research checked on 2026-09-08. Scope: the existing BM04 implementation and
-public vendor documentation. No cameras were reset, re-paired, or moved to
+public vendor documentation. Update: Google Play acquisition without Android
+hardware is now verified; see [the 3.4.0 live test](GOOGLE_PLAY.md). No cameras were reset, re-paired, or moved to
 another account during this investigation.
 
 **A connected phone is not technically required for every installation.**
@@ -23,9 +24,10 @@ There are two distinct authentication steps:
 
 The current extractor derives that configuration from the package identity,
 APK certificate, manifest metadata, security image and ARM64 native library.
-It accepts the verified `com.lute.momcozy` version **3.3.0** only. This is a
-constraint of this implementation, not proof that Android hardware is an
-inherent requirement of the camera protocol. See [protocol evidence](PROTOCOL.md).
+Version 0.3.0 attempts newer `com.lute.momcozy` builds, validates SDK extraction
+and camera authentication, and retains a local working fallback. Both 3.3.0
+and 3.4.0 have been tested. Android hardware is not an inherent requirement
+of this client. See [protocol evidence](PROTOCOL.md).
 
 The phone has supplied the app files; it does not relay desktop video. Once
 configured, the bridge performs cloud authentication/signaling itself. Cloud
@@ -33,7 +35,7 @@ access remains necessary in the verified implementation.
 
 ## Routes and current evidence
 
-The development setup assistant now implements direct Google Play acquisition
+The 0.3.0 setup assistant now implements direct Google Play acquisition
 through goopdl with desktop browser authentication. See
 [Google Play setup](GOOGLE_PLAY.md) for availability and validation status.
 It eliminates Android hardware from acquisition while still using APK material.

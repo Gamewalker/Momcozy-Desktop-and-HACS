@@ -181,15 +181,17 @@ def handle(request):
         return {"ok": True, "nativeRuntime": True, "googlePlayRuntime": True}
     if command == "discover":
         return {"ok": True, "devices": devices(request)}
-    if command not in {"prepareAndroid", "prepareApks", "preparePlay", "importSigning", "importConfig", "configure"}:
+    if command not in {"prepareAndroid", "prepareApks", "preparePlay", "prepareCached", "importSigning", "importConfig", "configure"}:
         raise SetupError("invalid_request", "Unknown setup command.")
     data = Path(request["dataDir"]).expanduser().resolve()
     private_dir(data)
     signing = data / ".setup-signing.private.json"
+    app_result = {}
+    cache_data = Path(request.get("appCacheDir") or data / "app-cache").expanduser().resolve()
     with tempfile.TemporaryDirectory(prefix=".setup-", dir=data) as temp:
         stage = Path(temp)
         private_dir(stage)
-        if command == "preparePlay":
+        if command in {"preparePlay", "prepareCached"}:
             refuse_existing_cameras(data)
         if command == "importConfig":
             refuse_existing_cameras(data)
@@ -223,13 +225,28 @@ def handle(request):
             os.replace(stage / "cameras.private.json", data / "cameras.private.json")
             return {"ok": True, "cameraCount": len(manifest), "dataDir": str(data), "cameras": cameras}
         if command in {"prepareAndroid", "prepareApks", "preparePlay"}:
-            if command == "preparePlay":
-                from play_download import acquire
-                base, arm = acquire(request, stage)
+            from app_cache import remember_candidate, restore
+            try:
+                if command == "preparePlay":
+                    from play_download import acquire
+                    base, arm = acquire(request, stage)
+                else:
+                    base, arm = pull_apks(request, stage) if command == "prepareAndroid" else (
+                        Path(request["baseApk"]).resolve(), Path(request["arm64Apk"]).resolve())
+                run_script("prepare_apk", stage, base, arm)
+            except SetupError:
+                if command != "preparePlay" or not request.get("allowFallback", True):
+                    raise
+                app_result = restore(cache_data, stage)
+                if not app_result:
+                    raise
             else:
-                base, arm = pull_apks(request, stage) if command == "prepareAndroid" else (
-                    Path(request["baseApk"]).resolve(), Path(request["arm64Apk"]).resolve())
-            run_script("prepare_apk", stage, base, arm)
+                app_result["appVersion"] = remember_candidate(cache_data, base, arm, stage / "signing.private.json")
+        elif command == "prepareCached":
+            from app_cache import restore
+            app_result = restore(cache_data, stage)
+            if not app_result:
+                raise SetupError("cache_missing", "No successfully configured app version is saved in this folder.")
         elif command == "importSigning":
             config = json.loads(Path(request["signingPath"]).read_text(encoding="utf-8-sig"))
             if not all(isinstance(config.get(k), str) and config[k] for k in ("appKey", "signingKey", "deviceId")):
@@ -241,6 +258,9 @@ def handle(request):
             if not source.exists():
                 raise SetupError("signing_missing", "Prepare the app or import your private signing configuration first.")
             shutil.copyfile(source, stage / "signing.private.json")
+            config = json.loads((stage / "signing.private.json").read_text())
+            config["deviceId"] = secrets.token_hex(16)
+            (stage / "signing.private.json").write_text(json.dumps(config), encoding="utf-8")
             if not request.get("username") or not request.get("password"):
                 raise SetupError("credentials_missing", "Enter your Momcozy email and password.")
             country = request.get("country", "DE")
@@ -250,21 +270,38 @@ def handle(request):
             credentials.write_text(json.dumps({"email": request["username"], "password": request["password"], "countryCode": country}), encoding="utf-8")
             run_script("momcozy_login", stage, credentials, "--country", country)
             credentials.unlink()
-            for script in ("tuya_login", "list_momcozy_devices", "tuya_camera_info", "make_bridge_config"):
-                run_script(script, stage)
+            run_script("list_momcozy_devices", stage)
+            try:
+                for script in ("tuya_login", "tuya_camera_info"):
+                    run_script(script, stage)
+            except SetupError:
+                from app_cache import restore
+                app_result = restore(cache_data, stage, current=stage / "signing.private.json") if request.get("allowFallback", True) else None
+                if not app_result:
+                    raise
+                config = json.loads((stage / "signing.private.json").read_text())
+                config["deviceId"] = secrets.token_hex(16)
+                (stage / "signing.private.json").write_text(json.dumps(config), encoding="utf-8")
+                # Reuse the successful Momcozy login; retry only the SDK steps.
+                for script in ("tuya_login", "tuya_camera_info"):
+                    run_script(script, stage)
+            run_script("make_bridge_config", stage)
             manifest = json.loads((stage / "cameras.private.json").read_text())
             if not manifest:
                 raise SetupError("no_cameras", "The account did not return any supported cameras.")
             cameras = apply_options(request, stage, manifest)
+            from app_cache import promote
+            promote(cache_data, stage / "signing.private.json")
+            app_result["appVersion"] = json.loads((stage / "signing.private.json").read_text()).get("appVersion", "3.3.0")
             # Publish manifest last: the desktop launcher cannot observe partial setup.
             for file in stage.glob("*.private.json"):
                 if file.name != "cameras.private.json":
                     os.replace(file, data / file.name)
             os.replace(stage / "cameras.private.json", data / "cameras.private.json")
             signing.unlink(missing_ok=True)
-            return {"ok": True, "cameraCount": len(manifest), "dataDir": str(data), "cameras": cameras}
+            return {"ok": True, "cameraCount": len(manifest), "dataDir": str(data), "cameras": cameras, **app_result}
         os.replace(stage / "signing.private.json", signing)
-        return {"ok": True, "prepared": True}
+        return {"ok": True, "prepared": True, **app_result}
 
 
 def main():
@@ -277,7 +314,7 @@ def main():
             raise SystemExit(1)
         return
     if sys.argv[1:] == ["--help"]:
-        print("Momcozy setup helper: send one JSON request on stdin. Commands: discover, prepareAndroid, prepareApks, preparePlay, importSigning, importConfig, configure.")
+        print("Momcozy setup helper: send one JSON request on stdin. Commands: discover, prepareAndroid, prepareApks, preparePlay, prepareCached, importSigning, importConfig, configure.")
         return
     if len(sys.argv) > 1 and sys.argv[1] == "--internal":
         if getattr(sys, "frozen", False):

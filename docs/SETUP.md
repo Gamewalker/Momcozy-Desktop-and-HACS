@@ -1,4 +1,4 @@
-# Setup assistant (0.2.0)
+# Setup assistant (0.3.0)
 
 The assistant configures the desktop bridge through a browser page on your
 computer. The complete package includes `setup-helper/` and its Python runtime;
@@ -33,14 +33,17 @@ account flow currently covers DE/EU accounts.
 
 ## Choose an input
 
-Development builds also offer an experimental **Google Play download** with
-desktop Google sign-in, requiring no Android device. It is not in the 0.2.0
-release. See [Google Play setup and limitations](GOOGLE_PLAY.md).
+Version 0.3.0 adds **Google Play download** with desktop Google sign-in and a
+local app archive/fallback, requiring no Android device. Both 3.3.0 and 3.4.0
+have passed real account/camera checks; future versions are attempted through
+the same validation. See [Google Play setup and limitations](GOOGLE_PLAY.md).
 
 | Input | What to provide |
 | --- | --- |
-| Connected Android phone | Momcozy app 3.3.0 installed, USB debugging enabled and the computer authorized on the phone. Use the assistant's official Android Platform Tools download option if ADB is missing. |
-| Own APK files | Base APK and ARM64 split for `com.lute.momcozy` 3.3.0. A standalone APK containing the ARM64 library may serve as both files. No phone connection needed. |
+| Google Play (0.3.0+) | Google account and desktop browser; downloads the latest base/ARM64 app and retains a local fallback after successful configuration. |
+| Saved app archive (0.3.0+) | A previously verified local app snapshot; no Google login needed. |
+| Connected Android phone | Momcozy app installed, USB debugging enabled and the computer authorized on the phone. Use the assistant's official Android Platform Tools download option if ADB is missing. |
+| Own APK files | Base APK and matching ARM64 split for `com.lute.momcozy`. A standalone APK containing the ARM64 library may serve as both files. No phone connection needed. |
 | Own signing configuration | `signing.private.json` from your previous preparation, followed by account login. No APK extraction needed. |
 | Own camera configuration | The private camera configuration from your existing installation. No fresh login is needed while the stored session remains valid. |
 
@@ -67,8 +70,8 @@ running and awake. Setup does not install an automatic service.
 - Missing helper: extract the whole complete package again, or use the source
   instructions below. Copying the main executable alone is insufficient.
 - Android authorization: unlock the phone and accept its USB debugging prompt.
-- Unsupported app version: only 3.3.0 is verified; use your own compatible files
-  or a previous private signing configuration.
+- Incompatible app SDK: use the saved working app archive or your own compatible
+  files. Version numbers alone do not determine compatibility.
 - Existing configuration: use another private data directory for an independent
   installation; do not overwrite a working HA bridge accidentally.
 - Native runtime failure: use the source workflow and report the platform and

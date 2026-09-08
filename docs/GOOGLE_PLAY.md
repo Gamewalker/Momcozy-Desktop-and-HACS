@@ -1,73 +1,98 @@
-# Google Play download without an Android device
+# Google Play download and local fallback (0.3.0)
 
-The development version adds **Von Google Play herunterladen · ohne
-Android-Gerät** to the local setup assistant. This is not included in the
-published 0.2.0 packages. It uses [goopdl 1.2.1](https://github.com/Villoh/goopdl)
-as a Python library, included in newly built complete native packages.
+Choose **Von Google Play herunterladen · ohne Android-Gerät** in the setup
+assistant. The complete package bundles [goopdl 1.2.1](https://github.com/Villoh/goopdl)
+as a library. No Android phone, emulator or separate downloader installation is
+required. Google authentication and APK delivery remain unofficial interfaces
+and may change or reject a particular account.
 
-This route is experimental until a real Google login, APK download and camera
-session have all been verified. Automated tests cover the adapter and failures;
-they do not establish Google account acceptance. Google may reject unofficial
-clients, limit requests or offer an unsupported app version.
+## Verified on 2026-09-08
+
+- Desktop browser Google login and direct Play access succeeded.
+- The current catalog offered **Momcozy 3.4.0, build 30402**. The base APK and
+  ARM64 split were downloaded from Google and passed size/checksum checks.
+- Local SDK extraction and fresh Momcozy/Tuya login succeeded. Both BM04 cameras
+  produced decoded **1920x1080 video and audio** through the Windows bridge.
+- A separate request for **3.3.0, build 30300** also downloaded that older app.
+  The actual APK manifest confirmed 30300, and SDK preparation and camera
+  configuration succeeded. Google's delivery metadata still reported 30402;
+  the adapter therefore checks the downloaded manifest, not that unreliable
+  protobuf field.
+- Automated tests cover fallback selection, preservation of a working snapshot,
+  checksum failures and retrying the SDK steps without repeating Momcozy login.
+
+This proves historical delivery for that build/account at the test date. It is
+not a promise that Google will keep serving older builds. Linux/macOS packages
+receive build/runtime checks; real camera playback was tested on Windows.
 
 ## Setup
 
-1. Start the development package's setup assistant and choose the Google Play
-   option in step 1. Choose a new private configuration folder.
+1. Open `momcozy-desktop setup` (Windows: the setup shortcut) and select the
+   Google Play option. Choose a new private camera configuration folder.
 2. Leave **In einem separaten Browserfenster anmelden** selected and click
    **App vorbereiten**. Chrome, Edge, Chromium or Brave must be installed.
-3. Sign in directly on Google's page in the newly opened temporary browser
-   profile and complete Google's consent. Prefer a separate Google account.
-   This registers a simulated ARM64 Play device for downloading; no Android
-   installation or phone is needed. The sign-in window allows four minutes.
-4. The helper takes the one-time Google OAuth token from that temporary profile,
-   exchanges it for an AAS token and authenticates directly to Google Play.
-   It requests `com.lute.momcozy`, then downloads the base APK and ARM64 split
-   (or uses the base alone when it already contains the native library).
-5. After successful local preparation, enter your **Momcozy** account in step 2
-   and finish desktop or Home Assistant bridge setup normally.
+3. Sign in directly on Google's page in the temporary browser profile and
+   complete Google's consent within four minutes. Prefer a separate Google
+   account. The helper registers a simulated ARM64 device for Play downloads.
+4. The helper obtains the Google tokens, downloads the latest Momcozy base/ARM64
+   APKs, validates them and attempts local SDK extraction. New app versions are
+   not excluded by a fixed allowlist. An incompatible SDK must still fail.
+5. Enter your **Momcozy** account in step 2 and finish desktop or HA bridge setup.
+   Cameras must already be paired to that account in the official app; this may
+   have been done on iPhone. Google login does not pair or move your cameras.
 
-The Google account and Momcozy account serve different purposes. This does not
-pair new cameras or move an existing camera to Google. Cameras must already be
-paired to the Momcozy account through the official app, including its iOS app
-for iPhone owners.
+Advanced users may instead supply a Google email and AAS token. The token field
+is not for a Google password. To request an older release, expand the build
+option and enter its numeric version code, such as `30300`. Leave it empty for
+latest. An unavailable or mismatched build is rejected.
 
-Advanced users can select **Eigenes AAS-Token verwenden** and enter their Google
-email and existing AAS token. This field is not for a Google password. Do not
-post the token in issues, chats or shell commands.
+## Saved working version
 
-## Data handling and validation
+**Privates App-Archiv** defaults to `app-cache` inside the initial configuration
+folder. It stores local APKs, SDK signing data and SHA-256 checksums. Use the
+**same archive path** when creating a new camera configuration in another
+folder. Existing camera configurations are not overwritten by setup.
 
-- Google authentication material is passed through private JSON stdin and used
-  in memory for one helper invocation. It is not returned to the browser UI,
-  written into camera configuration, or printed by goopdl's CLI.
-- The temporary Google browser profile is separate from existing browser
-  profiles and is removed after ordinary completion or cancellation. No
-  shared account/token dispenser is used, and no `~/.config/goopdl` cache is
-  created. The adapter ignores inherited `GOOPDL_ACCOUNT_EMAIL` / token values.
-- Downloads use HTTPS Google hosts, including validation on redirects. Cookies
-  are stripped on cross-host redirects. Downloaded bytes must match Play's
-  declared size and SHA-256 (or SHA-1 when SHA-256 is absent).
-- The base package and version must match **com.lute.momcozy 3.3.0**, and the
-  ARM64 split must match its version code and contain the required native
-  library. This is transport/digest and manifest validation, not an independent
-  cryptographic APK-signature verifier.
-- Downloaded files live in a protected temporary setup directory and are
-  removed after processing. Only the private signing configuration is retained
-  for the subsequent Momcozy login. Existing camera configurations are refused
-  as a download-setup destination.
+A prepared app is initially a candidate. Only after successful Tuya login,
+camera metadata retrieval and configuration validation is it recorded as the
+working snapshot. This automatic check validates authentication/configuration;
+it does not itself decode a live stream. The 3.4.0 live test above additionally
+verified video and audio.
 
-## Troubleshooting
+With fallback enabled, a failed Play download/extraction or subsequent SDK
+login/metadata step uses the saved working signing data. SDK fallback reuses
+the already successful Momcozy login and assigns a fresh device identity so
+another running bridge is not displaced. Momcozy password failures are not
+retried as SDK failures. The UI reports when a fallback was used.
 
-If Google refuses the browser, authentication or a device profile, this version
-reports the failure; it does not bypass a challenge or silently use somebody
-else's account. You can retry later, provide your own AAS token, or use the
-existing APK import option.
+Choose **Gespeicherte funktionierende App-Version** to use the archive directly
+without Google login. Fallback is available only after a successful version has
+been saved; it cannot create a backup on a first failed installation. New
+candidates do not replace the known-good pointer until validation succeeds.
+Snapshots are retained locally, including the previous working pointer, and
+are never included in GitHub releases. The archive can occupy several hundred
+megabytes per attempt; it is not an automatic background updater.
 
-The adapter requests the previously verified version **3.3.0 / version code
-30300**, even if the catalog advertises a newer release. Google may stop serving
-that historical build. If it is unavailable or the delivered manifest differs,
-setup stops. Do not rename an APK or disable the extractor's version check.
+## Data handling
 
-The normal camera bridge does not need the Google account after app preparation.
-Google login is needed again only if you choose to download the app again.
+Google credentials/tokens are used in memory for one normal helper invocation,
+never returned to the UI or stored in camera configuration. No shared token
+service or goopdl account cache is used. The temporary browser profile is separate
+from your normal browser and removed after ordinary completion/cancellation.
+For development tests only, the owner explicitly authorized a short-lived Play
+token cache in a protected local test directory; that facility is not bundled.
+
+HTTPS download hosts and redirects are checked, including Google's `gvt1.com`
+CDN. Cross-host redirects drop delivery cookies. APK bytes must match Google's
+declared size and SHA-256 (or SHA-1 if SHA-256 is absent). Base/split package,
+version code and certificate identities must agree, and the ARM64 library must
+be present. Certificate identity matching is not an independent APK-signature
+verification implementation.
+
+The native library is interpreted with a bounded ARM64 emulator, not installed
+or loaded as host code. Unsupported SDK layouts fail. The bridge uses the app
+version recorded with its signing data, retaining 3.3.0 as the compatibility
+default for old configuration files without version metadata.
+
+Google login is only needed to download an app again; normal camera operation
+uses Momcozy/Tuya. Keep APK archives, signing files and all tokens private.

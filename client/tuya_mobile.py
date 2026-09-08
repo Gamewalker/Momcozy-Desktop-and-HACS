@@ -18,14 +18,15 @@ def parameters():
     embedded=bytes.fromhex(json.loads((ROOT/'embedded-keys.private.json').read_text())[0]).decode()
     result={'appKey':meta['THING_SMART_APPKEY'],
             'signingKey':'_'.join([apk.get_package(),cert_hash,embedded,meta['THING_SMART_SECRET']]),
-            'deviceId':uuid.uuid4().hex}
+            'deviceId':uuid.uuid4().hex,'appVersion':apk.get_androidversion_name(),
+            'appVersionCode':apk.get_androidversion_code()}
     cache.write_text(json.dumps(result),encoding='utf-8')
     return result
 
 def call(action, body=None, sid=None, version='1.0'):
     config=parameters()
     params={'a':action,'v':version,'clientId':config['appKey'],'os':'Android',
-            'appVersion':'3.3.0','deviceId':config['deviceId'],'lang':'en',
+            'appVersion':config.get('appVersion','3.3.0'),'deviceId':config['deviceId'],'lang':'en',
             'time':str(int(time.time())),'requestId':str(uuid.uuid4()),'et':'0.0.1'}
     package_cert='_'.join(config['signingKey'].split('_')[:2])
     params['chKey']=hmac.new(config['appKey'].encode(),package_cert.encode(),hashlib.sha256).hexdigest()[8:16]

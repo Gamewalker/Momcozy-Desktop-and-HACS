@@ -1,4 +1,4 @@
-"""Extract SDK parameters from the user's own Android 3.3.0 APKs."""
+"""Extract SDK parameters from a compatible Momcozy ARM64 APK."""
 import argparse
 import json
 import shutil
@@ -17,8 +17,17 @@ def main():
     logger.remove()
     from androguard.core.apk import APK
     apk = APK(str(args.base_apk))
-    if apk.get_package() != "com.lute.momcozy" or apk.get_androidversion_name() != "3.3.0":
-        parser.error("Only com.lute.momcozy 3.3.0 has been verified; refusing unknown native code.")
+    if apk.get_package() != "com.lute.momcozy" or not apk.get_androidversion_name():
+        parser.error("Expected a versioned com.lute.momcozy package.")
+    # Future versions are attempted in the bounded ARM64 emulator. Native
+    # compatibility and subsequent Tuya authentication determine acceptance.
+    arm_apk = APK(str(args.arm64_apk))
+    if (arm_apk.get_package() != apk.get_package()
+            or arm_apk.get_androidversion_code() != apk.get_androidversion_code()):
+        parser.error("Base and ARM64 APKs must belong to the same app build.")
+    certificates = {cert.dump() for cert in apk.get_certificates()}
+    if not certificates or certificates != {cert.dump() for cert in arm_apk.get_certificates()}:
+        parser.error("Base and ARM64 APKs must carry matching signing certificates.")
     android = "{http://schemas.android.com/apk/res/android}"
     metadata = {node.get(android+"name"): node.get(android+"value")
                 for node in apk.get_android_manifest_xml().iter("meta-data")}
@@ -35,7 +44,7 @@ def main():
     (DATA/"native/libthing_security_algorithm.so").write_bytes(native)
     (DATA/"apk-parameters.private.json").write_text(json.dumps({name:metadata[name] for name in names}))
     from setup_wizard import script_command
-    subprocess.run(script_command("decode_tuya_key"), check=True)
+    subprocess.run(script_command("decode_tuya_key"), check=True, timeout=120)
     from tuya_mobile import parameters
     if (DATA/"signing.private.json").exists():
         parser.error("Signing configuration already exists. Use a fresh MOMCOZY_DATA_DIR for another APK.")

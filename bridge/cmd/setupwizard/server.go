@@ -188,7 +188,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch command {
-	case "discover", "prepareAndroid", "prepareApks", "preparePlay", "importSigning", "importConfig", "configure":
+	case "discover", "prepareAndroid", "prepareApks", "preparePlay", "prepareCached", "importSigning", "importConfig", "configure":
 	default:
 		http.Error(w, "Unknown action", 400)
 		return

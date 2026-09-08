@@ -45,6 +45,7 @@ Example:
 	cmd.Flags().String("sid", "", "Tuya session ID")
 	cmd.Flags().String("ecode", "", "Tuya ecode (from login response)")
 	cmd.Flags().String("partner", "", "Partner identity (from login response)")
+	cmd.Flags().String("app-version", "3.3.0", "Momcozy app version matching the private signing configuration")
 	cmd.Flags().String("app-key", "", "Tuya app key (clientId)")
 	cmd.Flags().String("device-id", "", "Phone device ID")
 	cmd.Flags().String("ch-key", "071d81fa", "Channel key")
@@ -94,7 +95,7 @@ func runDirect(cmd *cobra.Command, args []string) error {
 	client.Ecode = ecode
 	client.PartnerIdentity = partner
 	client.PackageName = packageName
-	client.AppVersion = "3.3.0"
+	client.AppVersion, _ = cmd.Flags().GetString("app-version")
 
 	core.Logger.Info().Msgf("Tuya API host: %s", apiHost)
 	core.Logger.Info().Msg("Verifying API access...")

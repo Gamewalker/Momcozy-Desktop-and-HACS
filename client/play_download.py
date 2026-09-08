@@ -14,9 +14,6 @@ import zipfile
 from setup_errors import SetupError
 
 PACKAGE = "com.lute.momcozy"
-VERSION = "3.3.0"
-# Read from the manifest of the previously verified official 3.3.0 package.
-VERSION_CODE = 30300
 NATIVE = "lib/arm64-v8a/libthing_security_algorithm.so"
 MAX_APK = 768 * 1024 * 1024
 
@@ -27,7 +24,7 @@ def google_url(url):
     if (parsed.scheme != "https" or parsed.username or parsed.password
             or parsed.port not in (None, 443)
             or not any(host.endswith("." + suffix) or host == suffix
-                       for suffix in ("google.com", "googleapis.com", "googleusercontent.com", "ggpht.com"))):
+                       for suffix in ("google.com", "googleapis.com", "googleusercontent.com", "ggpht.com", "gvt1.com"))):
         raise SetupError("play_download", "Google Play returned an unsupported download address.")
     return url
 
@@ -114,17 +111,18 @@ def acquire(request, stage):
         details = api.get_details(PACKAGE, auth, country="DE")
         if details.package != PACKAGE:
             raise SetupError("play_version", "Google Play returned a different package.")
-        # The catalog may advertise a newer build. Request only our verified
-        # version; historical delivery is not guaranteed by Google.
-        delivery_token = api.purchase(PACKAGE, VERSION_CODE, auth, country="DE")
-        delivery = api.get_delivery(PACKAGE, VERSION_CODE, auth, country="DE", delivery_token=delivery_token)
-        if delivery.version_code and delivery.version_code != VERSION_CODE:
-            raise SetupError("play_version", "Google Play returned a different version.")
+        requested = int(request.get("playVersionCode") or details.version_code)
+        if not 0 < requested < 2**31:
+            raise SetupError("play_version", "Google Play did not return a usable version code.")
+        delivery_token = api.purchase(PACKAGE, requested, auth, country="DE")
+        delivery = api.get_delivery(PACKAGE, requested, auth, country="DE", delivery_token=delivery_token)
+        # The APK manifest is authoritative. Unofficial delivery protobuf
+        # metadata can report a different value for its version field.
         base = stage / "play-base.apk"
         download_file(delivery, base, delivery.cookies)
         parsed = APK(str(base))
-        if (parsed.get_package() != PACKAGE or parsed.get_androidversion_name() != VERSION
-                or str(parsed.get_androidversion_code()) != str(VERSION_CODE)):
+        if (parsed.get_package() != PACKAGE or not parsed.get_androidversion_name()
+                or str(parsed.get_androidversion_code()) != str(requested)):
             raise SetupError("play_version", "The APK manifest does not match the requested Momcozy version.")
         with zipfile.ZipFile(base) as archive:
             if NATIVE in archive.namelist():
@@ -136,7 +134,7 @@ def acquire(request, stage):
         download_file(candidates[0], arm)
         split = APK(str(arm))
         if (split.get_package() != PACKAGE
-                or str(split.get_androidversion_code()) != str(VERSION_CODE)):
+                or str(split.get_androidversion_code()) != str(requested)):
             raise SetupError("play_version", "The ARM64 split does not match the base APK.")
         with zipfile.ZipFile(arm) as archive:
             if NATIVE not in archive.namelist():
@@ -151,6 +149,6 @@ def acquire(request, stage):
     except api.AppNotAvailableError:
         raise SetupError("play_unavailable", "Momcozy is unavailable for this Google account/device region.") from None
     except api.VersionUnavailableError:
-        raise SetupError("play_version", "Google Play does not deliver the supported Momcozy 3.3.0 build 30300 for this account/device.") from None
+        raise SetupError("play_version", "Google Play does not deliver the requested build for this account/device.") from None
     except Exception:
         raise SetupError("play_download", "Google Play download failed. Check connectivity and account availability.") from None

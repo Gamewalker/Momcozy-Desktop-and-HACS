@@ -3,7 +3,7 @@
 Input: local JSON with email, password, countryCode (account country).
 No proxy, no redirects, no password output, no automatic credential retries.
 """
-from state import DATA
+from state import DATA, app_version
 
 import argparse
 import base64
@@ -48,7 +48,7 @@ def main():
     if not isinstance(country, str) or not country:
         raise ValueError("countryCode missing")
     headers = {"Content-Type": "application/json", "Client": "Android",
-        "Version": "3.3.0", "X-COZY-APPID": "momcozy-0719",
+        "Version": app_version(), "X-COZY-APPID": "momcozy-0719",
         "CountryCode": country, "Language": "de", "ZoneId": "Europe/Berlin"}
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
 

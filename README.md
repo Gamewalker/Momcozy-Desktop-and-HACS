@@ -10,8 +10,8 @@ signaling and serves RTSP video and audio to VLC or Home Assistant.
 [Setup assistant](docs/SETUP.md) ·
 [Home Assistant / HACS](docs/HOME_ASSISTANT.md)
 
-Development builds add [Google Play download without an Android device](docs/GOOGLE_PLAY.md)
-through desktop Google sign-in. This experimental option is not in release 0.2.0.
+Version 0.3.0 adds [Google Play download without an Android device](docs/GOOGLE_PLAY.md)
+through desktop Google sign-in, with a local working-version fallback.
 
 ## Choose your setup
 
@@ -29,7 +29,7 @@ configuration exists, or with the `setup` command. Complete packages include its
 Python runtime; no manual Python installation is needed. The native build workflow checks the helper before and after packaging; older
 0.1.x releases still use the source preparation tools. An existing private configuration can be imported from your own
 installation. No APKs, vendor keys or account
-credentials are included. The tested preparation flow uses Android app **3.3.0**
+credentials are included. The tested preparation flow uses Android apps **3.3.0 and 3.4.0**
 and **DE/EU accounts**. No phone proxy or Android root is needed.
 Own APK files or existing private signing configuration also work without a
 connected phone. Email/password-only playback without app parameters is not yet

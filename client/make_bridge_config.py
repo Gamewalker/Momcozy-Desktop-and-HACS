@@ -11,6 +11,7 @@ for i,device in enumerate(devices,1):
     config={'signing-key':sign['signingKey'],'sid':login['sid'],'ecode':login['ecode'],
             'partner':login['partnerIdentity'],'app-key':sign['appKey'],
             'device-id':sign['deviceId']+str(i),'ch-key':ch,'package':'com.lute.momcozy',
+            'app-version':sign.get('appVersion','3.3.0'),
             'camera-id':device['deviceId'],'camera-name':'bm04_'+str(i),'port':str(18553+i)}
     filename=f'bridge-{i}.private.json'
     (root/filename).write_text(json.dumps(config),encoding='utf-8')
