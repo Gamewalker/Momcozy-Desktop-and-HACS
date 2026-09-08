@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Momcozy-Kamera verbinden",
-        "description": "Die Bridge muss separat laufen. Hier die IP des Bridge-Rechners eintragen, nicht die Kamera-IP. Die Zugangsdaten gelten für RTSP, nicht für das Momcozy-Konto.",
+        "description": "Ãœbernimm Host, Port, Stream-Pfad und RTSP-Zugangsdaten aus deiner Bridge-Einrichtung.",
         "data": {
           "name": "Name",
           "host": "Bridge-Host",
@@ -16,7 +16,7 @@
       },
       "reconfigure": {
         "title": "Momcozy-Kamera verbinden",
-        "description": "Die Bridge muss separat laufen. Hier die IP des Bridge-Rechners eintragen, nicht die Kamera-IP. Die Zugangsdaten gelten für RTSP, nicht für das Momcozy-Konto.",
+        "description": "Ãœbernimm Host, Port, Stream-Pfad und RTSP-Zugangsdaten aus deiner Bridge-Einrichtung.",
         "data": {
           "name": "Name",
           "host": "Bridge-Host",
@@ -28,9 +28,9 @@
       }
     },
     "error": {
-      "cannot_connect": "Keine gültige RTSP-Videobeschreibung empfangen. Bridge, Firewall, Port und Pfad prüfen.",
-      "invalid_auth": "RTSP-Zugangsdaten wurden abgelehnt. Die Bridge muss Basic-Authentifizierung unterstützen.",
-      "invalid_config": "Host, Port, Pfad und Name prüfen. Beide RTSP-Zugangsdaten ausfüllen oder beide leer lassen."
+      "cannot_connect": "Verbindung fehlgeschlagen. Bridge, Host, Firewall, Port und Pfad prüfen.",
+      "invalid_auth": "RTSP-Benutzername und Passwort prüfen.",
+      "invalid_config": "Host, Port, Pfad und Name prÃƒÂ¼fen. Beide RTSP-Zugangsdaten ausfÃƒÂ¼llen oder beide leer lassen."
     },
     "abort": {
       "already_configured": "Dieser Bridge-Endpunkt ist bereits eingerichtet.",

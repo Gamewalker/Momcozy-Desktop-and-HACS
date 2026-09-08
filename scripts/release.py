@@ -51,6 +51,8 @@ def documentation():
     files = {}
     for path in (ROOT / "docs").glob("*.md"):
         body = path.read_text(encoding="utf-8")
+        body = re.sub(r"\]\(archive/([^\s)]+)\)",
+                      r"](https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/blob/main/docs/archive/\1)", body)
         body = re.sub(r"\]\(\.\./([^\s)]+)\)",
                       r"](https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/blob/main/\1)", body)
         files[path.name] = body.encode("utf-8")

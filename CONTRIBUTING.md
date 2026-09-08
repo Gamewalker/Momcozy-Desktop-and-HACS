@@ -3,7 +3,7 @@
 Keep binary desktop launch code in `bridge/cmd/desktop/`, source launchers in
 `client/` and `scripts/`, media/signaling code in
 `bridge/`, and the Home Assistant integration in
-`custom_components/momcozy/`. Read `docs/HOME_ASSISTANT.md` before adding HACS
+`custom_components/momcozy/`. Read `docs/archive/HOME_ASSISTANT.md` before adding HACS
 metadata or integration dependencies.
 
 Run `go test ./...` from `bridge/` and
@@ -21,3 +21,5 @@ Retain upstream MIT notices. Distinguish native execution from cross-builds in
 test reports. HACS integration tests belong under `tests/home_assistant/` and run
 in the Home Assistant integration test workflow. Run real loopback socket tests
 separately from the HA test harness, which deliberately blocks network access.
+
+Technical references: [protocol](docs/archive/PROTOCOL.md), [Google Play](docs/archive/GOOGLE_PLAY.md), [private state](docs/SECURITY.md).

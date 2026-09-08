@@ -1,3 +1,5 @@
+> Archived guide. [Current setup](../SETUP.md).
+
 # Google Play download and local fallback (0.3.0)
 
 Choose **Von Google Play herunterladen · ohne Android-Gerät** in the setup

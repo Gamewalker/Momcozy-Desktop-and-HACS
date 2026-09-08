@@ -1,3 +1,5 @@
+> Archived guide. [Current setup](../SETUP.md).
+
 # Protocol reconstruction
 
 Observed with Momcozy BM04, firmware 25.01.08, Android package

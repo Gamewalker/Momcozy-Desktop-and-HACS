@@ -1,3 +1,5 @@
+> Archived guide. [Current setup](../SETUP.md).
+
 # Setup without a connected Android phone
 
 Research checked on 2026-09-08. Scope: the existing BM04 implementation and
@@ -15,11 +17,11 @@ have a verified end-to-end playback route.
 
 There are two distinct authentication steps:
 
-1. [Momcozy login](../client/momcozy_login.py) runs directly on the desktop.
+1. [Momcozy login](../../client/momcozy_login.py) runs directly on the desktop.
    It hashes the password and calls the Momcozy account API, then obtains an
    OEM Tuya UID/token. This script does not read an APK or signing file.
-2. [Tuya login](../client/tuya_login.py) calls the signed mobile API through
-   [tuya_mobile.py](../client/tuya_mobile.py). That code needs the OEM app key
+2. [Tuya login](../../client/tuya_login.py) calls the signed mobile API through
+   [tuya_mobile.py](../../client/tuya_mobile.py). That code needs the OEM app key
    and signing configuration to obtain the camera session and RTC metadata.
 
 The current extractor derives that configuration from the package identity,
@@ -150,7 +152,7 @@ OEM-token exchange API. No new stream or session-renewal success is claimed.
 
 ### Tuya QR login and account boundaries
 
-The inherited [auth command](../bridge/cmd/auth/auth.go) advertises Tuya Smart /
+The inherited [auth command](../../bridge/cmd/auth/auth.go) advertises Tuya Smart /
 Smart Life QR authentication against `protect-*.ismartlife.me`. Its existence
 does not verify Momcozy compatibility. Momcozy's current working route obtains
 an OEM UID/token from its own backend rather than passing the Momcozy email and
