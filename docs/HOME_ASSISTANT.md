@@ -155,7 +155,7 @@ python -m unittest discover -s tests/home_assistant -p test_rtsp.py -v
 Run the HA tests on Linux with Python 3.14:
 
 ```sh
-sudo apt-get install libturbojpeg0 ffmpeg
+sudo apt-get install libturbojpeg ffmpeg
 python -m pip install -r tests/home_assistant/requirements.txt
 python -m pytest -o asyncio_mode=auto tests/home_assistant
 ```
@@ -163,3 +163,4 @@ python -m pytest -o asyncio_mode=auto tests/home_assistant
 That harness pins Home Assistant 2026.9.1. The declared minimum follows the APIs
 used by the component; a passing current-version test run is not a test of every
 intervening HA release.
+
