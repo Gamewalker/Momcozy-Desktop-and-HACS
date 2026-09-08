@@ -7,6 +7,7 @@ signaling and serves RTSP video and audio to VLC or Home Assistant.
 [Download binaries](https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/releases/latest) ·
 [Deutsch: Einrichtung](docs/DESKTOP-DE.md) ·
 [Desktop guide](docs/BINARIES.md) ·
+[Setup assistant](docs/SETUP.md) ·
 [Home Assistant / HACS](docs/HOME_ASSISTANT.md)
 
 ## Choose your setup
@@ -15,15 +16,22 @@ signaling and serves RTSP video and audio to VLC or Home Assistant.
 | --- | --- | --- |
 | Watch on Windows, Linux or macOS | Bridge binary, VLC, your private camera configuration | [Desktop binaries](docs/BINARIES.md) |
 | Watch in Home Assistant, with sound | Reachable bridge **0.1.2+**, FFmpeg on the bridge computer, HACS integration | [Home Assistant setup](docs/HOME_ASSISTANT.md) |
-| Prepare a new account | Your Android app APKs, Python and your Momcozy login | [First-time preparation](docs/DESKTOP-DE.md#windows) |
+| Prepare a new account in 0.2.0 | Complete desktop package with setup helper, own app files or connected Android phone, Momcozy login | [Setup assistant](docs/SETUP.md) |
 | Build and run from source | Git, Go, Python; VLC for desktop playback | [Windows / Linux / macOS](docs/DESKTOP-DE.md) |
 
 The binaries require no Python or Go for playback. On Windows, use **0.1.3+
 for double-click launch**; older builds incorrectly blocked launches from
-Explorer. Initial APK/account preparation still uses the source tools; an existing private configuration can
-be transferred from your own installation. No APKs, vendor keys or account
+Explorer. The **0.2.0 setup assistant** opens in your local browser when no camera
+configuration exists, or with the `setup` command. Complete packages include its
+Python runtime; no manual Python installation is needed. Native helper builds
+are undergoing validation; older 0.1.x releases still use the source preparation
+tools. An existing private configuration can be imported from your own
+installation. No APKs, vendor keys or account
 credentials are included. The tested preparation flow uses Android app **3.3.0**
 and **DE/EU accounts**. No phone proxy or Android root is needed.
+Own APK files or existing private signing configuration also work without a
+connected phone. Email/password-only playback without app parameters is not yet
+verified; see [phone-free research](docs/PHONE_FREE_RESEARCH.md).
 
 ## How it connects
 

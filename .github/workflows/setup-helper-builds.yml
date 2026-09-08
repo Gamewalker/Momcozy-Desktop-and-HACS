@@ -4,12 +4,18 @@ on:
   push:
     paths:
       - 'client/**'
+      - 'bridge/**'
+      - 'docs/**'
+      - 'scripts/release.py'
       - 'scripts/build_setup_helper.py'
       - 'requirements*.txt'
       - '.github/workflows/setup-helper-builds.yml'
   pull_request:
     paths:
       - 'client/**'
+      - 'bridge/**'
+      - 'docs/**'
+      - 'scripts/release.py'
       - 'scripts/build_setup_helper.py'
       - 'requirements*.txt'
       - '.github/workflows/setup-helper-builds.yml'
@@ -61,7 +67,7 @@ jobs:
         run: |
           version=v0.2.0-dev
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then version="$GITHUB_REF_NAME"; fi
-          python scripts/release.py --version "$version" --target '${{ matrix.goTarget }}' --setup-helper artifacts/setup-helper --output release
+          python scripts/release.py --version "$version" --target '${{ matrix.goTarget }}' --setup-helper artifacts/setup-helper --output release --verify-native
       # Tar preserves executable permissions through artifact upload/download.
       - run: tar -czf setup-helper-${{ matrix.target }}.tar.gz -C artifacts setup-helper
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

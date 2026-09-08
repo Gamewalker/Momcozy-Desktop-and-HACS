@@ -9,6 +9,7 @@ import hashlib
 import io
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -18,6 +19,63 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 TARGETS = (("windows", "amd64"), ("linux", "amd64"), ("linux", "arm64"), ("darwin", "amd64"), ("darwin", "arm64"))
+
+
+def helper_entries(helper, windows=False):
+    """Preserve framework links without allowing links outside the private-free input."""
+    helper = helper.resolve()
+    files, modes, links = {}, {}, {}
+    for path in helper.rglob("*"):
+        name = "setup-helper/" + path.relative_to(helper).as_posix()
+        if path.suffix.lower() == ".apk" or ".private." in path.name:
+            raise ValueError("Private configuration or APK found in helper distribution")
+        if path.is_symlink():
+            target = os.readlink(path)
+            if windows or Path(target).is_absolute():
+                raise ValueError("Unsupported absolute or Windows helper symlink")
+            try:
+                path.resolve(strict=True).relative_to(helper)
+            except (ValueError, OSError, RuntimeError):
+                raise ValueError("Broken or escaping helper symlink") from None
+            links[name] = Path(target).as_posix()
+        elif path.is_file():
+            files[name] = path.read_bytes()
+            modes[name] = 0o755 if path.stat().st_mode & 0o111 else 0o644
+        elif not path.is_dir():
+            raise ValueError("Unsupported helper filesystem entry")
+    return files, modes, links
+
+
+def documentation():
+    """Put linked guides alongside the archive README; source links go to GitHub."""
+    files = {}
+    for path in (ROOT / "docs").glob("*.md"):
+        body = path.read_text(encoding="utf-8")
+        body = re.sub(r"\]\(\.\./([^\s)]+)\)",
+                      r"](https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/blob/main/\1)", body)
+        files[path.name] = body.encode("utf-8")
+    files["README.md"] = files["BINARIES.md"]
+    return files
+
+
+def verify_archive(archive, stem, binary_name, has_helper):
+    """Exercise the extracted layout, not the pre-archive build directory."""
+    with tempfile.TemporaryDirectory(prefix="momcozy-release-smoke-") as temp:
+        if archive.suffix == ".zip":
+            with zipfile.ZipFile(archive) as bundle:
+                bundle.extractall(temp)
+        else:
+            with tarfile.open(archive) as bundle:
+                bundle.extractall(temp, filter="data")
+        root = Path(temp) / stem
+        subprocess.run([str(root / binary_name), "--version"], check=True, timeout=30)
+        if has_helper:
+            helper = root / "setup-helper" / ("momcozy-setup-helper" + (".exe" if os.name == "nt" else ""))
+            subprocess.run([str(helper), "--help"], check=True, timeout=30)
+            result = subprocess.run([str(helper), "--stdin"], input='{"command":"selfTest"}',
+                                    capture_output=True, text=True, check=True, timeout=60)
+            if not json.loads(result.stdout).get("nativeRuntime"):
+                raise RuntimeError("Extracted helper failed native runtime test")
 
 
 def module_licenses(go, env):
@@ -51,23 +109,24 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--target", choices=[f"{system}/{arch}" for system, arch in TARGETS])
     parser.add_argument("--setup-helper", type=Path, help="Native helper onedir; requires matching --target")
+    parser.add_argument("--verify-native", action="store_true", help="Extract and execute archive on its native build runner")
     args = parser.parse_args()
     if args.setup_helper and not args.target:
         parser.error("--setup-helper requires a single matching --target")
+    if args.verify_native and not args.target:
+        parser.error("--verify-native requires a single native --target")
     helper_files = {}
     helper_modes = {}
+    helper_links = {}
     if args.setup_helper:
         helper = args.setup_helper.resolve()
         expected = "momcozy-setup-helper" + (".exe" if args.target.startswith("windows/") else "")
         if not (helper / expected).is_file():
             parser.error("Setup helper executable is missing")
-        for path in helper.rglob("*"):
-            if path.is_file():
-                name = "setup-helper/" + path.relative_to(helper).as_posix()
-                if path.suffix.lower() == ".apk" or ".private." in path.name:
-                    parser.error("Private configuration or APK found in helper distribution")
-                helper_files[name] = path.read_bytes()
-                helper_modes[name] = 0o755 if path.stat().st_mode & 0o111 else 0o644
+        try:
+            helper_files, helper_modes, helper_links = helper_entries(helper, args.target.startswith("windows/"))
+        except ValueError as error:
+            parser.error(str(error))
     if not args.version.startswith("v") or any(c not in "v0123456789.-abcdefghijklmnopqrstuvwxyz" for c in args.version):
         parser.error("Use a release version such as v0.1.0")
     go = shutil.which(args.go) or str(Path(args.go).resolve())
@@ -84,7 +143,7 @@ def main():
         "licenses/Go-LICENSE": (goroot / "LICENSE").read_bytes(),
         "licenses/bridge-LICENSE": (ROOT / "bridge/LICENSE").read_bytes(),
         "NOTICE.md": (ROOT / "NOTICE.md").read_bytes(),
-        "README.md": (ROOT / "docs/BINARIES.md").read_bytes(),
+        **documentation(),
         **notices,
     }
     sums = []
@@ -112,6 +171,15 @@ def main():
                         info.mode = 0o755 if name == binary_name else helper_modes.get(name, 0o644)
                         info.mtime = 0
                         bundle.addfile(info, io.BytesIO(contents))
+                    for name, target in sorted(helper_links.items()):
+                        info = tarfile.TarInfo(stem + "/" + name)
+                        info.type = tarfile.SYMTYPE
+                        info.linkname = target
+                        info.mode = 0o777
+                        info.mtime = 0
+                        bundle.addfile(info)
+            if args.verify_native:
+                verify_archive(archive, stem, binary_name, bool(args.setup_helper))
             digest = hashlib.sha256(archive.read_bytes()).hexdigest()
             sums.append(f"{digest}  {archive.name}")
             print(f"Built {archive.name}", flush=True)

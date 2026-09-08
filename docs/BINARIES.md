@@ -4,8 +4,10 @@ Download the archive for your machine from
 [GitHub Releases](https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/releases/latest).
 The executable starts the camera bridges and opens one VLC window per camera.
 Playback needs **VLC and your private camera configuration**; Python and Go are
-not required on the viewing machine. This is a command-line application with VLC
-windows, not an installer or a graphical account setup wizard.
+not required on the viewing machine. **0.2.0 adds a local browser setup assistant**
+with its own bundled helper runtime. Older 0.1.x releases still require source
+tools for first-time account preparation. Native helper packages are undergoing
+validation; building a package is not proof of live-camera playback on that OS.
 
 | Machine | Release archive |
 | --- | --- |
@@ -22,12 +24,16 @@ from this repository and verify its SHA256SUMS entry before running it.
 
 ## 1. Prepare private configuration once
 
-The executable does not contain vendor SDK keys, credentials or camera IDs.
-Use the source checkout's [setup and account preparation instructions](https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/blob/main/docs/DESKTOP-DE.md)
-to extract SDK parameters from **your installed Android APK** and configure your
-account. That initial step requires Python and the listed preparation tools.
-Afterward, playback uses only the downloaded binary and VLC. No Android proxy is
-needed.
+Extract the **entire archive**, including `setup-helper/` and its `_internal/`
+directory. Do not copy just the executable. In a 0.2.0 complete package, starting
+without existing cameras opens the [setup assistant](SETUP.md); use
+`momcozy-desktop setup` to open it explicitly. It imports your own configuration,
+signing file or APKs, or reads the installed app from an authorized Android
+phone. It then performs account login and configuration locally.
+
+The executable contains no vendor SDK keys, credentials or camera IDs. No
+Android proxy is needed. The [source preparation instructions](DESKTOP-DE.md)
+remain available for 0.1.x packages and developers.
 
 Already configured on another computer? Transfer `bridge-*.private.json` and,
 if present, `cameras.private.json` **privately** to:

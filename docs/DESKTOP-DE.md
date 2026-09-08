@@ -8,7 +8,16 @@ Verbindungsvermittlung benötigen weiterhin die Momcozy-/Tuya-Cloud.
 
 ### Fertige EXE herunterladen
 
-Unter [GitHub Releases](https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/releases/latest) das Windows-amd64-ZIP herunterladen, entpacken und die enthaltene `momcozy-desktop.exe` starten. Für die Wiedergabe werden VLC und die eigene private Kamerakonfiguration benötigt; Python und Go sind dafür nicht nötig. Bei der ersten Einrichtung müssen die APK-/Kontoparameter weiterhin wie unten beschrieben vorbereitet oder aus der eigenen Installation übernommen werden. Details einschließlich `--data-dir` stehen in der [Binary-Anleitung](BINARIES.md).
+Unter [GitHub Releases](https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/releases/latest) das Windows-amd64-ZIP herunterladen, **vollständig entpacken** und `momcozy-desktop.exe` starten. Für die Wiedergabe wird VLC benötigt; Python und Go sind dafür nicht nötig.
+
+**Neu für 0.2.0:** Ohne vorhandene Kamerakonfiguration öffnet sich ein lokaler
+[Einrichtungsassistent](SETUP.md). Der komplette Download enthält dessen
+Hilfsprogramm und Python-Laufzeit. Der Assistent kann ein angeschlossenes
+Android-Telefon, eigene APK-Dateien oder vorhandene private Konfigurationen
+verwenden. Manuelle Python-, ADB- und JSON-Schritte entfallen. Mit
+`momcozy-desktop.exe setup` lässt er sich erneut öffnen. Die nativen Pakete
+befinden sich noch in der Prüfung; Versionen 0.1.x enthalten diesen Assistenten
+nicht. Details einschließlich `--data-dir` stehen in der [Binary-Anleitung](BINARIES.md).
 
 Die folgenden Schritte beschreiben die Einrichtung aus dem Quellcode.
 

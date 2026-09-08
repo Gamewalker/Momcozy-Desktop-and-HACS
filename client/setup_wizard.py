@@ -152,6 +152,11 @@ def apply_options(request, stage, manifest):
     return cameras
 
 
+def refuse_existing_cameras(data):
+    if (data / "cameras.private.json").exists() or any(data.glob("bridge-*.private.json")):
+        raise SetupError("existing_configuration", "This folder already contains cameras. Choose a new setup folder.")
+
+
 def handle(request):
     command = request.get("command")
     if command == "selfTest":
@@ -184,8 +189,7 @@ def handle(request):
         stage = Path(temp)
         private_dir(stage)
         if command == "importConfig":
-            if (data / "cameras.private.json").exists():
-                raise SetupError("existing_configuration", "This folder already contains cameras. Choose a new setup folder.")
+            refuse_existing_cameras(data)
             source = Path(request["configDir"]).expanduser().resolve()
             manifest = json.loads((source / "cameras.private.json").read_text(encoding="utf-8-sig"))
             if not isinstance(manifest, list) or not manifest or len(set(manifest)) != len(manifest):
@@ -205,6 +209,9 @@ def handle(request):
                 config["listen-host"] = "127.0.0.1"
                 config.pop("rtsp-user", None)
                 config.pop("rtsp-password", None)
+                # Independent desktop imports must not reuse a currently running
+                # source bridge's MQTT client identity.
+                config["device-id"] += "-import-" + secrets.token_hex(4)
                 (stage / name).write_text(json.dumps(config), encoding="utf-8")
             cameras = apply_options(request, stage, manifest)
             for name in manifest:
@@ -222,8 +229,7 @@ def handle(request):
                 raise SetupError("invalid_signing", "This is not a valid private signing configuration.")
             (stage / "signing.private.json").write_text(json.dumps(config), encoding="utf-8")
         else:
-            if (data / "cameras.private.json").exists():
-                raise SetupError("existing_configuration", "This folder already contains cameras. Choose a new setup folder.")
+            refuse_existing_cameras(data)
             source = signing if signing.exists() else data / "signing.private.json"
             if not source.exists():
                 raise SetupError("signing_missing", "Prepare the app or import your private signing configuration first.")
@@ -234,7 +240,7 @@ def handle(request):
             if country != "DE":
                 raise SetupError("country_unsupported", "Only DE/EU accounts have been verified.")
             credentials = stage / "credentials.private.json"
-            credentials.write_text(json.dumps({"email": request["username"], "password": request["password"]}), encoding="utf-8")
+            credentials.write_text(json.dumps({"email": request["username"], "password": request["password"], "countryCode": country}), encoding="utf-8")
             run_script("momcozy_login", stage, credentials, "--country", country)
             credentials.unlink()
             for script in ("tuya_login", "list_momcozy_devices", "tuya_camera_info", "make_bridge_config"):

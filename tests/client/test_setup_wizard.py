@@ -57,6 +57,16 @@ class SetupWizardTests(unittest.TestCase):
                 wizard.handle({"command": "importConfig", "configDir": str(source), "dataDir": str(root / "target")})
             self.assertFalse((root / "target/cameras.private.json").exists())
 
+    def test_legacy_bridge_without_manifest_is_preserved(self):
+        with tempfile.TemporaryDirectory() as temp:
+            bridge = Path(temp) / "bridge-1.private.json"
+            bridge.write_text('{"legacy":"keep"}')
+            for command in ("configure", "importConfig"):
+                with self.assertRaises(wizard.SetupError) as caught:
+                    wizard.handle({"command": command, "dataDir": temp})
+                self.assertEqual(caught.exception.code, "existing_configuration")
+                self.assertEqual(bridge.read_text(), '{"legacy":"keep"}')
+
     def test_import_makes_desktop_config_loopback_and_strips_rtsp_password(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -70,6 +80,8 @@ class SetupWizardTests(unittest.TestCase):
             self.assertEqual(result["cameraCount"], 1)
             saved = json.loads((root / "target/bridge-1.private.json").read_text())
             self.assertEqual(saved["listen-host"], "127.0.0.1")
+            self.assertTrue(saved["device-id"].startswith("value-import-"))
+            self.assertEqual(json.loads((source / "bridge-1.private.json").read_text())["device-id"], "value")
             self.assertNotIn("rtsp-password", saved)
             self.assertNotIn("secret", json.dumps(result))
 
@@ -89,6 +101,7 @@ class SetupWizardTests(unittest.TestCase):
                 self.assertFalse((data / "cameras.private.json").exists())
                 if name == "momcozy_login":
                     self.assertEqual(json.loads(Path(args[0]).read_text())["password"], "test-secret")
+                    self.assertEqual(json.loads(Path(args[0]).read_text())["countryCode"], "DE")
                 if name == "make_bridge_config":
                     (stage / "cameras.private.json").write_text('["bridge-1.private.json"]')
                     (stage / "bridge-1.private.json").write_text('{"camera-name":"bm04_1","device-id":"test"}')

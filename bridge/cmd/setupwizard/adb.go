@@ -119,6 +119,9 @@ func extractTools(archive, destination string) error {
 		if clean != "platform-tools" && !strings.HasPrefix(clean, "platform-tools"+string(os.PathSeparator)) {
 			return errors.New("unsafe archive path")
 		}
+		if entry.UncompressedSize64 > 512<<20 {
+			return errors.New("archive entry too large")
+		}
 		total += entry.UncompressedSize64
 		if total > 512<<20 {
 			return errors.New("archive too large")

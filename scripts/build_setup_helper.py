@@ -10,6 +10,7 @@ See https://pyinstaller.org/en/stable/common-issues-and-pitfalls.html#windows-ex
 """
 import argparse
 import hashlib
+import http.client
 import importlib.metadata as metadata
 import json
 import os
@@ -18,10 +19,27 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
+import urllib.error
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 NAME = "momcozy-setup-helper"
+
+
+def download(url, limit=64 * 1024 * 1024):
+    """Retry transient public-source transport failures, never checksum failures."""
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(url, timeout=60) as response:
+                data = response.read(limit + 1)
+            if len(data) > limit:
+                raise ValueError("Dependency source exceeds download size limit")
+            return data
+        except (urllib.error.URLError, OSError, http.client.HTTPException):
+            if attempt == 2:
+                raise
+            time.sleep(attempt + 1)
 
 
 def licenses(destination):
@@ -50,11 +68,9 @@ def licenses(destination):
         if name.lower() in {"unicorn", "loguru"}:
             # Some wheels omit notices. Keep the matching public source archive,
             # including its notices, alongside the unmodified bundled library.
-            with urllib.request.urlopen(f"https://pypi.org/pypi/{name}/{dist.version}/json", timeout=30) as response:
-                package = json.load(response)
+            package = json.loads(download(f"https://pypi.org/pypi/{name}/{dist.version}/json"))
             source = next(item for item in package["urls"] if item["packagetype"] == "sdist")
-            with urllib.request.urlopen(source["url"], timeout=60) as response:
-                archive = response.read()
+            archive = download(source["url"])
             if hashlib.sha256(archive).hexdigest() != source["digests"]["sha256"]:
                 raise RuntimeError("Dependency source checksum mismatch")
             (folder / source["filename"]).write_bytes(archive)
@@ -103,7 +119,7 @@ def main():
                                capture_output=True, text=True, check=True, timeout=60)
         if not json.loads(smoke.stdout).get("nativeRuntime"):
             raise RuntimeError("Frozen APK/Unicorn runtime smoke test failed")
-        shutil.copytree(distribution, output)
+        shutil.copytree(distribution, output, symlinks=True)
     print(f"Built native setup helper: {output}")
 
 
