@@ -4,6 +4,8 @@ Add each BM04 as a camera in Home Assistant, with live video and sound.
 
 **You need:** Home Assistant 2025.6+, HACS and a Windows, Linux or macOS computer running the Momcozy bridge. Keep that computer running and awake.
 
+Momcozy setup requires an email address and a password set for your Momcozy account. Google or Facebook sign-in is not supported.
+
 ## 1. Configure the bridge
 
 1. Install [FFmpeg](https://ffmpeg.org/download.html) on the bridge computer and complete [setup](SETUP.md) through the Momcozy login step.

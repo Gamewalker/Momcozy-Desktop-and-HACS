@@ -9,6 +9,8 @@ BM04-Kameras mit Bild und Ton auf Windows, Linux, macOS oder in Home Assistant a
 - [VLC](https://www.videolan.org/vlc/) und Chrome, Edge, Chromium oder Brave installieren.
 - [Aktuelles Paket herunterladen](https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/releases/latest) und vollständig entpacken.
 
+**Für die Momcozy-Anmeldung brauchst du eine E-Mail-Adresse und ein gesetztes Passwort für dein Momcozy-Konto. Die Anmeldung über Google oder Facebook wird nicht unterstützt.** Die separate Google-Anmeldung dient dem App-Download aus Google Play.
+
 ## Einrichten
 
 1. **Windows:** `momcozy-desktop.exe` doppelklicken. **Linux/macOS:** im entpackten Ordner `./momcozy-desktop` ausführen.

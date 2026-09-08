@@ -7,6 +7,8 @@
 - Install Chrome, Edge, Chromium or Brave. For desktop playback, install [VLC](https://www.videolan.org/vlc/).
 - [Download](https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/releases/latest) and extract the complete package, including `setup-helper/`.
 
+**Momcozy sign-in requires an email address and a password set for the Momcozy account. Google or Facebook sign-in is not supported.** The separate Google sign-in is used to download the app from Google Play.
+
 ## Setup assistant
 
 1. Start `momcozy-desktop.exe` on Windows or `./momcozy-desktop` on Linux/macOS.

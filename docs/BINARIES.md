@@ -14,6 +14,8 @@
 
 Install [VLC](https://www.videolan.org/vlc/) and Chrome, Edge, Chromium or Brave. Have your Google account and Momcozy DE/EU login ready; cameras must already be paired in the Momcozy app.
 
+**Momcozy sign-in requires an email address and a password set for the Momcozy account. Google or Facebook sign-in is not supported.** The separate Google sign-in is used to download the app from Google Play.
+
 - **Windows:** double-click `momcozy-desktop.exe`.
 - **Linux/macOS:** open a terminal in the extracted folder and run `./momcozy-desktop`.
 
