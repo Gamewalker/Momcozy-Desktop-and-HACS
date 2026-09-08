@@ -115,8 +115,9 @@ def main():
         shutil.copyfile(ROOT / "LICENSE", distribution / "LICENSE")
         executable = distribution / (NAME + (".exe" if os.name == "nt" else ""))
         subprocess.run([str(executable), "--help"], check=True, timeout=30)
-        smoke = subprocess.run([str(executable), "--stdin"], input='{"command":"selfTest"}',
-                               capture_output=True, text=True, check=True, timeout=60)
+        # This fixture accepts no credentials; retain its traceback in CI logs.
+        smoke = subprocess.run([str(executable), "--self-test"],
+                               stdout=subprocess.PIPE, text=True, check=True, timeout=60)
         if not json.loads(smoke.stdout).get("nativeRuntime"):
             raise RuntimeError("Frozen APK/Unicorn runtime smoke test failed")
         shutil.copytree(distribution, output, symlinks=True)

@@ -72,8 +72,8 @@ def verify_archive(archive, stem, binary_name, has_helper):
         if has_helper:
             helper = root / "setup-helper" / ("momcozy-setup-helper" + (".exe" if os.name == "nt" else ""))
             subprocess.run([str(helper), "--help"], check=True, timeout=30)
-            result = subprocess.run([str(helper), "--stdin"], input='{"command":"selfTest"}',
-                                    capture_output=True, text=True, check=True, timeout=60)
+            result = subprocess.run([str(helper), "--self-test"],
+                                    stdout=subprocess.PIPE, text=True, check=True, timeout=60)
             if not json.loads(result.stdout).get("nativeRuntime"):
                 raise RuntimeError("Extracted helper failed native runtime test")
 

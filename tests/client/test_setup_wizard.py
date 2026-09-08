@@ -11,6 +11,12 @@ import setup_wizard as wizard
 
 
 class SetupWizardTests(unittest.TestCase):
+    def test_diagnostic_self_test_never_reads_stdin_and_keeps_traceback(self):
+        with patch.object(sys, "argv", ["helper", "--self-test"]), patch.object(wizard, "handle", side_effect=RuntimeError("fixture failure")) as handle:
+            with self.assertRaisesRegex(RuntimeError, "fixture failure"):
+                wizard.main()
+            handle.assert_called_once_with({"command": "selfTest"})
+
     def test_device_selection_requires_explicit_choice(self):
         with patch.object(wizard, "devices", return_value=[{"serial": "a", "state": "device"}, {"serial": "b", "state": "device"}]):
             with self.assertRaises(wizard.SetupError) as caught:

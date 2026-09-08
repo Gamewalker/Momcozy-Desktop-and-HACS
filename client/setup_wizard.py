@@ -114,7 +114,7 @@ def apply_options(request, stage, manifest):
     mode = request.get("targetMode", "desktop")
     audio = request.get("audioFormat", "copy")
     base = int(request.get("basePort") or (19554 if mode == "ha" else 18554))
-    if mode not in {"desktop", "ha"} or audio not in {"copy", "aac"} or not 1 <= base <= 65536 - len(manifest):
+    if mode not in {"desktop", "ha"} or audio not in {"copy", "aac"} or not 1024 <= base <= 65536 - len(manifest):
         raise SetupError("invalid_options", "Choose a valid mode, audio format and port range.")
     host = "127.0.0.1"
     if mode == "ha":
@@ -138,7 +138,7 @@ def apply_options(request, stage, manifest):
         config.pop("ffmpeg-path", None)
         camera = {"host": host, "port": base + index, "path": config["camera-name"]}
         if audio == "aac":
-            config["ffmpeg-path"] = str(ffmpeg)
+            config["ffmpeg-path"] = str(Path(ffmpeg).resolve())
         if mode == "ha":
             config["rtsp-user"] = "homeassistant"
             config["rtsp-password"] = secrets.token_urlsafe(24)
@@ -261,6 +261,14 @@ def handle(request):
 
 
 def main():
+    if sys.argv[1:] == ["--self-test"]:
+        # Public, fixed native-runtime fixture only. Keep its traceback visible
+        # in build logs without reading stdin or touching account configuration.
+        result = handle({"command": "selfTest"})
+        print(json.dumps(result))
+        if not result.get("ok"):
+            raise SystemExit(1)
+        return
     if sys.argv[1:] == ["--help"]:
         print("Momcozy setup helper: send one JSON request on stdin. Commands: discover, prepareAndroid, prepareApks, importSigning, importConfig, configure.")
         return

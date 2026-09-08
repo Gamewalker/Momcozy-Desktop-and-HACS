@@ -41,7 +41,7 @@
 <div id="ha-panel" hidden><p>Die Bridge läuft auf diesem Rechner. Home Assistant verbindet sich über dein lokales Netzwerk. Der Rechner muss eingeschaltet bleiben.</p><div class="field"><label for="bridgeHost">LAN-IP dieses Rechners</label><input id="bridgeHost" type="text" placeholder="Zum Beispiel 192.168.1.20"></div></div>
 <div class="field"><label for="audioFormat">Tonformat</label><select id="audioFormat"><option value="copy">Originalton beibehalten</option><option value="aac">AAC für Home Assistant · benötigt FFmpeg</option></select></div>
 <div class="field" id="ffmpeg-panel" hidden><label for="ffmpegPath">FFmpeg-Programm (optional bei installiertem FFmpeg)</label><input id="ffmpegPath" type="text" placeholder="Pfad zu ffmpeg.exe oder ffmpeg"><p class="hint">Die Videospur bleibt unverändert. Nur der Ton wird umgewandelt.</p></div>
-<details><summary>Weitere Einstellungen</summary><div class="field"><label for="basePort">Erster RTSP-Port</label><input id="basePort" type="number" value="18554" min="1" max="65535"><p class="hint">Jede weitere Kamera verwendet den folgenden Port. Wähle freie Ports.</p></div></details>
+<details><summary>Weitere Einstellungen</summary><div class="field"><label for="basePort">Erster RTSP-Port</label><input id="basePort" type="number" value="18554" min="1024" max="65535"><p class="hint">Jede weitere Kamera verwendet den folgenden Port. Wähle freie Ports.</p></div></details>
 <div class="actions"><button id="configure" type="submit" disabled>Kameras einrichten</button></div>
 <p class="hint" id="prepare-hint">Bereite zuerst die App in Schritt 1 vor.</p>
 </section>
@@ -71,3 +71,4 @@ $('launch').addEventListener('click',async()=>{if(!finished)return;const result=
 $('close').addEventListener('click',async()=>{const result=await call({command:'close'},'Assistent wird beendet …');if(result){status('Der Assistent ist beendet. Du kannst diesen Tab schließen.');$('close').disabled=true;}});
 state();
 </script></body></html>
+

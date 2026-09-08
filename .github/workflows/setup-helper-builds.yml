@@ -54,6 +54,8 @@ jobs:
           go-version-file: bridge/go.mod
           cache-dependency-path: bridge/go.sum
       - run: python -m pip install -r requirements-setup-build.txt
+      - name: Verify source native runtime before freezing
+        run: python client/setup_wizard.py --self-test
       # Unicorn's JIT is incompatible with the stock Windows CFG bootloader.
       # Rebuild this helper's bootloader only; never alter Windows mitigations.
       - if: runner.os == 'Windows'
