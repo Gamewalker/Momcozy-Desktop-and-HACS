@@ -1,4 +1,4 @@
-"""Small, bounded RTSP description probe; never starts camera playback."""
+"""Bounded RTSP description probe; the bridge may initiate cloud signaling."""
 
 from __future__ import annotations
 

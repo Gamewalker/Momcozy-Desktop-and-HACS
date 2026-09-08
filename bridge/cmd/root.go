@@ -56,6 +56,11 @@ func init() {
 }
 
 func initConfig() {
+	// The supervisor uses the selected private data directory, never the launch
+	// directory. Its child bridges initialize their own isolated storage.
+	if command, _, err := rootCmd.Find(os.Args[1:]); err == nil && command.Name() == "desktop" {
+		return
+	}
 	var err error
 	storageManager, err = storage.NewStorageManager()
 	if err != nil {

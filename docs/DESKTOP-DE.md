@@ -6,6 +6,12 @@ Verbindungsvermittlung benÃ¶tigen weiterhin die Momcozy-/Tuya-Cloud.
 
 ## Windows
 
+### Fertige EXE herunterladen
+
+Unter [GitHub Releases](https://github.com/Gamewalker/momcozy-desktop/releases/latest) das Windows-amd64-ZIP herunterladen, entpacken und die enthaltene `momcozy-desktop.exe` starten. Für die Wiedergabe werden VLC und die eigene private Kamerakonfiguration benötigt; Python und Go sind dafür nicht nötig. Bei der ersten Einrichtung müssen die APK-/Kontoparameter weiterhin wie unten beschrieben vorbereitet oder aus der eigenen Installation übernommen werden. Details einschließlich `--data-dir` stehen in der [Binary-Anleitung](BINARIES.md).
+
+Die folgenden Schritte beschreiben die Einrichtung aus dem Quellcode.
+
 ### Voraussetzungen
 
 Installiere Python 3.11+, Go 1.26.2+, Git und VLC. Python, Go und Git mÃ¼ssen
@@ -34,8 +40,8 @@ go -C bridge build -o ../bin/momcozy-bridge.exe .
 Jeder Schritt muss erfolgreich abschlieÃŸen, bevor der nÃ¤chste ausgefÃ¼hrt wird.
 Die virtuelle Umgebung wird direkt angesprochen; `Activate.ps1` und eine
 Ã„nderung der PowerShell-AusfÃ¼hrungsrichtlinie sind dafÃ¼r nicht erforderlich.
-Eine fertige Windows-EXE wird derzeit nicht als GitHub-Release angeboten; der
-Build-Befehl erzeugt sie lokal unter `bin\momcozy-bridge.exe`.
+Alternativ zur fertigen EXE erzeugt der Build-Befehl eine lokale Version unter
+`bin\momcozy-bridge.exe`.
 
 ### Einmalig APKs und Konto vorbereiten
 

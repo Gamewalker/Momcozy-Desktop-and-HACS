@@ -16,11 +16,15 @@ offline RTSP firmware replacement or an official Momcozy product.
 
 - `bridge/`: Go WebRTC-to-RTSP bridge, adapted from aventproxy.
 - `client/`: local APK preparation, account login and camera discovery.
-- `scripts/`: Linux/macOS setup and playback entry points.
-- `custom_components/momcozy/`: reserved location for the future HACS integration.
-- `tests/client/` and `tests/home_assistant/`: separate desktop and future HA tests.
+- `scripts/`: source setup, playback and reproducible release packaging.
+- `custom_components/momcozy/`: installable Home Assistant/HACS camera integration.
+- `tests/client/` and `tests/home_assistant/`: separate desktop and HA tests.
 - `docs/PROTOCOL.md`: observed authentication and media protocol.
 - `docs/SECURITY.md`: private state, reporting and publication boundaries.
+
+## Prebuilt desktop binaries
+
+Download your Windows, Linux or macOS archive from [GitHub Releases](https://github.com/Gamewalker/momcozy-desktop/releases/latest), verify its SHA256SUMS entry and extract it. Playback needs VLC and your private camera configuration; Python and Go are not required for playback. Initial APK/account preparation below is still needed for a new account. See [binary usage](docs/BINARIES.md) for double-click/terminal operation and headless bridge mode.
 
 ## Prepare your own configuration
 
@@ -141,8 +145,7 @@ Private state defaults to `$env:USERPROFILE\.momcozy-desktop`. To select an
 existing private state folder, set `$env:MOMCOZY_DATA_DIR = 'C:\Private\State'`
 in the same PowerShell session before running the client. Stop any existing
 viewer first to free the camera ports. Rerun `configure.py` when tokens expire.
-There is currently no downloadable Windows release executable; the Go command
-above builds it locally. The repository does not create desktop shortcuts.
+A prebuilt Windows executable is available in [Releases](https://github.com/Gamewalker/momcozy-desktop/releases/latest); the Go command above is for building from source. The repository does not create desktop shortcuts.
 
 The first camera is `rtsp://127.0.0.1:18554/bm04_1`, the second
 `rtsp://127.0.0.1:18555/bm04_2`. Cameras are numbered in discovery order; these
@@ -163,9 +166,7 @@ configuration tests passed; native live-camera playback on Linux/macOS has not
 been performed on this Windows host. A cross-build alone does not establish
 live-camera compatibility.
 Long-duration reliability, network-outage recovery, automatic session refresh
-and non-EU accounts remain unverified. Home Assistant has a
-[reserved structure and implementation plan](docs/HOME_ASSISTANT.md), but no
-installable HACS integration yet. Talkback is off by default.
+and non-EU accounts remain unverified. Home Assistant can use the [HACS integration](docs/HOME_ASSISTANT.md) with a separately running, reachable bridge. HACS does not install the bridge executable. Talkback is off by default.
 
 ## Attribution
 

@@ -2,7 +2,7 @@
 
 The **Momcozy Bridge** custom integration exposes one camera entity per bridge
 stream. It includes UI setup, reconfiguration, TCP RTSP streaming, JPEG stills,
-availability checks and English/German translations. Home Assistant **2025.6.0
+connection validation and English/German translations. Home Assistant **2025.6.0
 or newer** is required.
 
 The camera connection still needs the Momcozy/Tuya cloud. Home Assistant talks
@@ -74,10 +74,11 @@ Add the integration again for camera two, using its own port/path. Duplicate
 host/port/path combinations are rejected. For an intentionally unauthenticated
 loopback endpoint, leave **both** credential fields empty.
 
-Setup performs an RTSP `DESCRIBE` handshake and checks for a video SDP. It does
-not start playback or prove that the cloud connection can currently deliver
-frames. The bridge opens the camera connection when a stream or snapshot is
-requested. The initial connection can take several seconds.
+Setup performs an RTSP `DESCRIBE` handshake and checks for a video SDP. This
+can initiate cloud signaling and a camera connection in the bridge, but does
+not prove that frames are received. The initial connection can take several
+seconds. The integration does not poll the endpoint repeatedly, avoiding
+background camera reconnections when nobody is watching.
 
 Open the camera entity's more-info dialog to view it, or add a Picture Entity
 card to a dashboard. Example (use your actual entity ID):
@@ -109,9 +110,11 @@ camera/cloud account.
   Momcozy email/password. This integration's setup probe supports Basic auth,
   matching this repository's bridge. Arbitrary Digest-only servers are not
   supported by the probe.
-* **Entity unavailable:** RTSP control checks run every 60 seconds. HA retries
-  setup if the bridge is offline. Availability describes the control endpoint;
-  cloud outages can still prevent video while the bridge remains available.
+* **Bridge goes offline:** HA retries setup when the initial connection fails.
+  After setup, entity availability means the configuration is loaded, not that
+  live camera health is confirmed. Playback errors appear in the media player.
+  No continuous availability polling runs; reload the integration to repeat
+  connection validation.
 * **JPEG works, browser video does not:** BM04 commonly supplies H.265/HEVC.
   Frontend playback depends on browser/device codec support. This integration
   does not transcode HEVC to H.264. A separate compatible transcoder is needed
@@ -152,7 +155,8 @@ python -m unittest discover -s tests/home_assistant -p test_rtsp.py -v
 Run the HA tests on Linux with Python 3.14:
 
 ```sh
-python -m pip install pytest-homeassistant-custom-component==0.13.364
+sudo apt-get install libturbojpeg0 ffmpeg
+python -m pip install -r tests/home_assistant/requirements.txt
 python -m pytest -o asyncio_mode=auto tests/home_assistant
 ```
 

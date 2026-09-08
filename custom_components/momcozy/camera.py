@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import shlex
-from datetime import timedelta
 
 from homeassistant.components.camera import Camera, CameraEntityFeature
 from homeassistant.components.ffmpeg import async_get_image
@@ -14,9 +13,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
-from .rtsp import CannotConnect, async_validate_endpoint, stream_url
-
-SCAN_INTERVAL = timedelta(seconds=60)
+from .rtsp import stream_url
 
 
 async def async_setup_entry(
@@ -27,18 +24,17 @@ async def async_setup_entry(
 
 
 class MomcozyCamera(Camera):
-    """Expose a bridge stream and periodically check its RTSP control endpoint."""
+    """Expose a bridge stream without repeated cloud-triggering RTSP probes."""
 
     _attr_has_entity_name = True
     _attr_name = None
     _attr_supported_features = CameraEntityFeature.STREAM
-    _attr_should_poll = True
+    _attr_should_poll = False
 
     def __init__(self, entry: ConfigEntry) -> None:
         super().__init__()
         self._data = entry.data
         self._attr_unique_id = entry.entry_id
-        self._attr_available = True
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             name=entry.title,
@@ -47,15 +43,6 @@ class MomcozyCamera(Camera):
         )
         self.stream_options["rtsp_transport"] = "tcp"
         self._image_lock = asyncio.Lock()
-
-    async def async_update(self) -> None:
-        """Check the bridge control endpoint; this does not prove cloud/media health."""
-        try:
-            await async_validate_endpoint(self._data)
-        except CannotConnect:
-            self._attr_available = False
-        else:
-            self._attr_available = True
 
     async def stream_source(self) -> str:
         """Let Home Assistant manage the RTSP stream lifecycle."""

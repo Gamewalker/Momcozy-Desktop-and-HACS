@@ -148,18 +148,7 @@ async def test_camera_and_diagnostics(hass, entry):
         assert await camera.async_camera_image(320, 180) == b"jpeg"
         assert image.call_args.args[1].startswith("-rtsp_transport tcp -i ")
         assert image.call_args.kwargs == {"width": 320, "height": 180}
-    with patch(
-        "custom_components.momcozy.camera.async_validate_endpoint",
-        side_effect=CannotConnect,
-    ):
-        await camera.async_update()
-        assert not camera.available
-    with patch(
-        "custom_components.momcozy.camera.async_validate_endpoint",
-        new_callable=AsyncMock,
-    ):
-        await camera.async_update()
-        assert camera.available
+    assert not camera.should_poll
     diagnostics = await async_get_config_entry_diagnostics(hass, entry)
     assert diagnostics == {
         "entry_version": 1,
