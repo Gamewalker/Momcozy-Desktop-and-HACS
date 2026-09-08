@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"avent-webrtc-bridge/cmd"
+	"avent-webrtc-bridge/cmd/setupwizard"
 	"avent-webrtc-bridge/pkg/core"
 )
 
@@ -17,7 +18,7 @@ func main() {
 	core.InitLogger()
 	core.Logger = core.Logger.Level(zerolog.InfoLevel)
 	if len(os.Args) == 1 {
-		os.Args = append(os.Args, "desktop")
+		os.Args = append(os.Args, setupwizard.DefaultCommand())
 	}
 	if len(os.Args) == 2 && strings.HasSuffix(strings.ToLower(os.Args[1]), ".json") {
 		data, err := os.ReadFile(os.Args[1])

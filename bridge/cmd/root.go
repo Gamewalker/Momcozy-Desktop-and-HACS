@@ -10,6 +10,7 @@ import (
 	"avent-webrtc-bridge/cmd/desktop"
 	"avent-webrtc-bridge/cmd/direct"
 	"avent-webrtc-bridge/cmd/rtsp"
+	"avent-webrtc-bridge/cmd/setupwizard"
 	"avent-webrtc-bridge/pkg/storage"
 
 	"github.com/spf13/cobra"
@@ -55,13 +56,14 @@ func init() {
 	rootCmd.AddCommand(rtsp.NewRTSPCmd())
 	rootCmd.AddCommand(direct.NewDirectCmd())
 	rootCmd.AddCommand(desktop.NewCommand())
+	rootCmd.AddCommand(setupwizard.NewCommand())
 	rootCmd.AddCommand(addon.NewAddonCmd())
 }
 
 func initConfig() {
 	// The supervisor uses the selected private data directory, never the launch
 	// directory. Its child bridges initialize their own isolated storage.
-	if command, _, err := rootCmd.Find(os.Args[1:]); err == nil && command.Name() == "desktop" {
+	if command, _, err := rootCmd.Find(os.Args[1:]); err == nil && (command.Name() == "desktop" || command.Name() == "setup") {
 		return
 	}
 	var err error

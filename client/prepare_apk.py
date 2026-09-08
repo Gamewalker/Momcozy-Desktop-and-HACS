@@ -34,7 +34,8 @@ def main():
         native = archive.read("lib/arm64-v8a/libthing_security_algorithm.so")
     (DATA/"native/libthing_security_algorithm.so").write_bytes(native)
     (DATA/"apk-parameters.private.json").write_text(json.dumps({name:metadata[name] for name in names}))
-    subprocess.run([sys.executable, str(Path(__file__).with_name("decode_tuya_key.py"))], check=True)
+    from setup_wizard import script_command
+    subprocess.run(script_command("decode_tuya_key"), check=True)
     from tuya_mobile import parameters
     if (DATA/"signing.private.json").exists():
         parser.error("Signing configuration already exists. Use a fresh MOMCOZY_DATA_DIR for another APK.")
