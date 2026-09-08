@@ -18,8 +18,9 @@ signaling and serves RTSP video and audio to VLC or Home Assistant.
 | Prepare a new account | Your Android app APKs, Python and your Momcozy login | [First-time preparation](docs/DESKTOP-DE.md#windows) |
 | Build and run from source | Git, Go, Python; VLC for desktop playback | [Windows / Linux / macOS](docs/DESKTOP-DE.md) |
 
-The binaries require no Python or Go for playback. Initial APK/account
-preparation still uses the source tools; an existing private configuration can
+The binaries require no Python or Go for playback. On Windows, use **0.1.3+
+for double-click launch**; older builds incorrectly blocked launches from
+Explorer. Initial APK/account preparation still uses the source tools; an existing private configuration can
 be transferred from your own installation. No APKs, vendor keys or account
 credentials are included. The tested preparation flow uses Android app **3.3.0**
 and **DE/EU accounts**. No phone proxy or Android root is needed.

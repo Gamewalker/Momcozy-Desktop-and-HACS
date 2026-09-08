@@ -44,6 +44,9 @@ func Execute(version string) error {
 }
 
 func init() {
+	// This executable deliberately supports Explorer/double-click launch.
+	// Cobra's default Windows mousetrap would exit before desktop mode runs.
+	cobra.MousetrapHelpText = ""
 	cobra.OnInitialize(initConfig)
 
 	// Add subcommands

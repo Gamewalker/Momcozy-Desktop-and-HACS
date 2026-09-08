@@ -51,7 +51,11 @@ the extracted directory and run:
 .\momcozy-desktop.exe desktop
 ```
 
-Double-clicking the executable also starts desktop mode. Keep its console open.
+With **version 0.1.3 or newer**, double-clicking the executable starts desktop
+mode. Older releases accidentally retained Cobra's Explorer-start guard and
+could display "This is a command line tool" instead of opening the cameras.
+No manually opened terminal or command entry is needed. A console window still
+appears because this is a console application; keep it open during playback.
 To use the configuration from a different directory:
 
 ```powershell
