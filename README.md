@@ -1,6 +1,6 @@
 # Momcozy BM04 Desktop
 
-[Deutsche Kurzanleitung](docs/DESKTOP-DE.md) · [Planned HACS integration](docs/HOME_ASSISTANT.md)
+[Download binaries](https://github.com/Gamewalker/momcozy-desktop/releases/latest) | [Deutsche Kurzanleitung](docs/DESKTOP-DE.md) | [HACS integration](docs/HOME_ASSISTANT.md)
 
 An experimental desktop viewer for your own Momcozy BM04 cameras. It signs in
 with your Momcozy account, negotiates Tuya WebRTC, and exposes one **loopback-only

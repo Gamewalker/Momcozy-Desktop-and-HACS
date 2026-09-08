@@ -5,10 +5,14 @@ file and all files under `MOMCOZY_DATA_DIR` private. Do not attach state files,
 APKs, signing parameters, MQTT/WebRTC messages, SDP or unredacted logs to issues.
 The repository ignore rules are a guardrail, not encryption.
 
-TLS verification remains enabled. Python requests do not use environment or
-system proxies. The RTSP listener binds to 127.0.0.1; local processes can still
-access the streams. There is no RTSP password because remote access is not
-supported. Do not expose these ports to the Internet.
+Cloud TLS verification remains enabled. Python requests do not use environment
+or system proxies. RTSP defaults to 127.0.0.1; local processes can access the
+streams. An explicit non-loopback `listen-host` requires separate `rtsp-user`
+and `rtsp-password` fields, with a password of at least 16 characters. LAN mode
+supports RTSP over TCP only. Restrict firewall access to the Home Assistant host.
+RTSP Basic authentication and media are not encrypted; use a trusted private LAN
+or VPN. Do not expose these ports to the Internet. Raw RTSP headers and URLs are
+not logged by this bridge.
 
 The launcher uses saved tokens; refresh is manual. A session file is a bearer
 credential even if the account password does not appear in it. Playback may use
