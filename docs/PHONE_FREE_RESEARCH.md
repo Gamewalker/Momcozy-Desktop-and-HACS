@@ -90,15 +90,56 @@ The official computer-transfer instructions concern files on a microSD card,
 not live playback.
 [Computer transfer instructions](https://support.momcozy.com/article/48235538327193)
 
-The official app listing identifies the Android distribution. This research
-did not establish a vendor-hosted direct download of the exact base/ARM64 APK
-pair supported by the extractor. An APK import therefore means files the user
-already possesses; it is not an automatic promise to fetch them from an
-unverified mirror.
-[Momcozy on Google Play](https://play.google.com/store/apps/details?id=com.lute.momcozy)
+### Manufacturer download: a route without Android hardware
+
+Further inspection found a manufacturer-linked APK source. The
+[Momcozy app page](https://momcozy.com/pages/app) links to `app.cozyinnov.com`.
+That site's public JavaScript includes a
+[download page](https://app.cozyinnov.com/app/download/zh?s=inner) and an
+[international APK download](https://lute-public-prod.oss-cn-shenzhen.aliyuncs.com/software/app-package/momcozy-release-oversea.apk).
+The international URL is present in the download page's public component
+`/_nuxt/CgnUxJ6d.js` as `apkOversea`; it was not guessed or obtained from a
+third-party APK mirror.
+
+This is a promising acquisition route for people who have never owned an
+Android phone. It still uses Android app material locally on the computer;
+it would not require installing Android or running an emulator. The existing
+setup assistant can accept one standalone APK in both APK fields **if** it is
+version 3.3.0 and contains the required ARM64 library.
+
+**Not yet verified end to end:** the storage host resolved, but HTTPS download
+attempts from the test computer timed out before receiving a response on
+2026-09-08. No APK was downloaded. Its version, signing certificate, ARM64
+contents and successful session creation therefore remain unverified. The URL
+is mutable and must not be advertised as a verified 3.3.0 package. Keep the
+extractor's compatibility checks; do not change a version label to bypass them.
+Automatic manufacturer download is not included in release 0.2.0.
+
+Momcozy also distributes an
+[iPhone app](https://apps.apple.com/us/app/momcozy/id6473000053), but this project
+has not implemented an iOS app-data extraction or iOS-based desktop login path.
+Existing camera pairing through iOS and acquiring desktop signing parameters
+are separate questions.
 
 These are bounded search findings, not a claim that no other vendor interface
 can exist.
+
+### Additional APK-free web-session test
+
+Using only the fresh Momcozy-issued OEM UID/token, the EU Tuya web endpoint
+`POST /api/login/token` accepted `isUid: true` and returned a login token and
+RSA public-key fields without mobile SDK signing parameters. A subsequent
+request to the existing bridge's `/api/private/phone/login` endpoint using the
+OEM UID and RSA-encrypted MD5 of the OEM token failed with
+`LOGIN_TOKEN_FAILED`. Fetching a fresh token and submitting the login within
+the same cookie session produced the same result.
+
+This establishes token issuance, **not** an authenticated camera session. The
+phone login endpoint may not support the Momcozy OEM UID flow. The public
+website's JavaScript also uses `/api/password/login` with an interactive
+verification result; that flow was not completed. `/api/login/exchange` in
+the same JavaScript generates a QR image, so its name is not evidence of an
+OEM-token exchange API. No new stream or session-renewal success is claimed.
 
 ### Tuya QR login and account boundaries
 
