@@ -21,7 +21,10 @@ class HomeAssistantAppRuntimeTests(unittest.TestCase):
             "--disable-gpu",
             "--disable-extensions",
             "--disable-background-networking",
-            "--renderer-process-limit=1",
+            "--single-process",
+            "--no-zygote",
+            "--js-flags=--max-old-space-size=64",
+            "--app=https://accounts.google.com/EmbeddedSetup",
         ):
             self.assertIn(flag, browser)
         self.assertIn("1024x640x16", runtime)

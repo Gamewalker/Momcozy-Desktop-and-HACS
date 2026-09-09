@@ -10,7 +10,11 @@ exec /usr/bin/chromium \
   --disable-component-update \
   --disable-default-apps \
   --disable-sync \
-  --renderer-process-limit=1 \
+  --single-process \
+  --no-zygote \
+  --js-flags=--max-old-space-size=64 \
+  --mute-audio \
   --window-size=1024,640 \
   --disable-features=Translate \
+  --app=https://accounts.google.com/EmbeddedSetup \
   "$@"

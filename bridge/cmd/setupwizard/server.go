@@ -34,8 +34,10 @@ var page string
 
 type server struct {
 	token, origin, helper, dataDir string
-	busy                           sync.Mutex
 	state                          sync.Mutex
+	operation                      sync.Mutex
+	operationCancel                context.CancelFunc
+	operationDone                  chan struct{}
 	cancel                         context.CancelFunc
 	readyDir, readyMode            string
 	launch                         bool
@@ -199,13 +201,14 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid setup request", 403)
 		return
 	}
-	if !s.busy.TryLock() {
-		http.Error(w, "Setup is busy", 409)
-		return
-	}
-	defer s.busy.Unlock()
 	if isUpload {
-		s.handleAPKUpload(w, r)
+		ctx, finish, ok := s.beginOperation(r.Context())
+		if !ok {
+			writeBusy(w)
+			return
+		}
+		defer finish()
+		s.handleAPKUpload(ctx, w, r)
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -215,6 +218,17 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	command, _ := input["command"].(string)
+	if command == "cancel" {
+		cancelled := s.cancelOperation(r.Context())
+		writeJSON(w, map[string]any{"ok": true, "cancelled": cancelled})
+		return
+	}
+	ctx, finish, ok := s.beginOperation(r.Context())
+	if !ok {
+		writeBusy(w)
+		return
+	}
+	defer finish()
 	if command == "status" && s.appMode {
 		cameras, err := cameraStatus(s.dataDir)
 		if err != nil {
@@ -275,8 +289,6 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unknown action", 400)
 		return
 	}
-	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Minute)
-	defer cancel()
 	result := invokeHelper(ctx, s.helper, input)
 	if ok, _ := result["ok"].(bool); ok && command == "configure" {
 		s.state.Lock()
@@ -307,11 +319,68 @@ func newOAuthBrowserProxy() http.Handler {
 
 const maxAPKUploadBytes int64 = 1024 * 1024 * 1024
 
-func (s *server) handleAPKUpload(w http.ResponseWriter, r *http.Request) {
+func writeBusy(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusConflict)
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok": false, "error": "setup_busy",
+		"message": "Another setup operation is still running.",
+	})
+}
+
+func (s *server) beginOperation(parent context.Context) (context.Context, func(), bool) {
+	s.operation.Lock()
+	defer s.operation.Unlock()
+	if s.operationDone != nil {
+		return nil, nil, false
+	}
+	ctx, cancel := context.WithTimeout(parent, 20*time.Minute)
+	done := make(chan struct{})
+	s.operationCancel = cancel
+	s.operationDone = done
+	finish := func() {
+		cancel()
+		s.operation.Lock()
+		if s.operationDone == done {
+			s.operationCancel = nil
+			s.operationDone = nil
+			close(done)
+		}
+		s.operation.Unlock()
+	}
+	return ctx, finish, true
+}
+
+func (s *server) cancelOperation(ctx context.Context) bool {
+	s.operation.Lock()
+	cancel, done := s.operationCancel, s.operationDone
+	s.operation.Unlock()
+	if cancel == nil || done == nil {
+		return false
+	}
+	cancel()
+	select {
+	case <-done:
+		return true
+	case <-ctx.Done():
+		return false
+	}
+}
+
+func (s *server) handleAPKUpload(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 	fail := func(code, message string) {
 		writeJSON(w, map[string]any{"ok": false, "error": code, "message": message})
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxAPKUploadBytes)
+	bodyDone := make(chan struct{})
+	defer close(bodyDone)
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = r.Body.Close()
+		case <-bodyDone:
+		}
+	}()
 	reader, err := r.MultipartReader()
 	if err != nil {
 		fail("apk_upload", "The APK upload could not be read.")
@@ -383,8 +452,6 @@ func (s *server) handleAPKUpload(w http.ResponseWriter, r *http.Request) {
 	input["baseApk"] = uploaded["baseApk"]
 	input["arm64Apk"] = uploaded["arm64Apk"]
 
-	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Minute)
-	defer cancel()
 	writeJSON(w, invokeHelper(ctx, s.helper, input))
 }
 

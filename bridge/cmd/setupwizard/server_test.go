@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestFirstRunPreservesExistingConfigurations(t *testing.T) {
@@ -82,7 +83,7 @@ func TestPageOffersOnlyGooglePlayAndAPKUpload(t *testing.T) {
 			t.Fatalf("manual token login remains in page: %s", removed)
 		}
 	}
-	for _, required := range []string{`value="play"`, `value="apks"`, `id="oauth-browser"`, `id="baseApk" type="file"`, `id="arm64Apk" type="file"`} {
+	for _, required := range []string{`value="play"`, `value="apks"`, `id="oauth-browser"`, `id="baseApk" type="file"`, `id="arm64Apk" type="file"`, `setup_busy`, `command:'cancel'`} {
 		if !strings.Contains(body, required) {
 			t.Fatalf("required setup control missing: %s", required)
 		}
@@ -149,6 +150,71 @@ func TestAPKUploadRequiresBothFiles(t *testing.T) {
 	}
 	if w := upload(true); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"prepared":true`) {
 		t.Fatalf("complete APK upload failed: %d %s", w.Code, w.Body.String())
+	}
+}
+
+func TestBusyAPKPreparationCanBeCancelledAndRetried(t *testing.T) {
+	helperDir := t.TempDir()
+	marker := filepath.Join(helperDir, "first-started")
+	helper := filepath.Join(helperDir, "helper")
+	script := "#!/bin/sh\n" +
+		"if [ ! -e '" + marker + "' ]; then\n" +
+		"  : > '" + marker + "'\n" +
+		"  while :; do sleep 1; done\n" +
+		"fi\n" +
+		"printf '{\"ok\":true,\"prepared\":true}'\n"
+	if err := os.WriteFile(helper, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	s := &server{token: "secret", origin: "http://127.0.0.1:12345", dataDir: t.TempDir(), helper: helper}
+
+	upload := func() *httptest.ResponseRecorder {
+		var body bytes.Buffer
+		form := multipart.NewWriter(&body)
+		base, _ := form.CreateFormFile("baseApk", "base.apk")
+		_, _ = base.Write([]byte("base fixture"))
+		arm64, _ := form.CreateFormFile("arm64Apk", "split_config.arm64_v8a.apk")
+		_, _ = arm64.Write([]byte("arm64 fixture"))
+		_ = form.Close()
+		r := httptest.NewRequest(http.MethodPost, s.origin+"/secret/upload", &body)
+		r.Header.Set("Origin", s.origin)
+		r.Header.Set("X-Setup-Token", s.token)
+		r.Header.Set("Content-Type", form.FormDataContentType())
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		return w
+	}
+
+	firstDone := make(chan *httptest.ResponseRecorder, 1)
+	go func() { firstDone <- upload() }()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if _, err := os.Stat(marker); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("blocking helper did not start")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	cancelRequest := httptest.NewRequest(http.MethodPost, s.origin+"/secret/api", strings.NewReader(`{"command":"cancel"}`))
+	cancelRequest.Header.Set("Origin", s.origin)
+	cancelRequest.Header.Set("X-Setup-Token", s.token)
+	cancelRequest.Header.Set("Content-Type", "application/json")
+	cancelResponse := httptest.NewRecorder()
+	s.ServeHTTP(cancelResponse, cancelRequest)
+	if cancelResponse.Code != http.StatusOK || !strings.Contains(cancelResponse.Body.String(), `"ok":true`) {
+		t.Fatalf("active preparation could not be cancelled: %d %s", cancelResponse.Code, cancelResponse.Body.String())
+	}
+
+	select {
+	case <-firstDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("cancelled preparation did not stop")
+	}
+	if retry := upload(); retry.Code != http.StatusOK || !strings.Contains(retry.Body.String(), `"prepared":true`) {
+		t.Fatalf("retry after cancellation failed: %d %s", retry.Code, retry.Body.String())
 	}
 }
 func TestAppModeRequiresIngressAndToken(t *testing.T) {

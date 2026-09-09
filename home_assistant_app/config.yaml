@@ -1,5 +1,5 @@
 name: Momcozy Bridge
-version: "0.1.3"
+version: "0.1.4"
 slug: momcozy_bridge
 description: Run the Momcozy camera bridge directly on Home Assistant
 url: https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/tree/main/home_assistant_app
