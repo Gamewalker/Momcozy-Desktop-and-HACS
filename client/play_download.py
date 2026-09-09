@@ -7,6 +7,8 @@ import base64
 import gzip
 import hashlib
 import hmac
+import json
+import sys
 from urllib.parse import urlsplit
 import urllib.request
 import zipfile
@@ -150,3 +152,23 @@ def acquire(request, stage):
         raise SetupError("play_version", "Google Play does not deliver the requested build for this account/device.") from None
     except Exception:
         raise SetupError("play_download", "Google Play download failed. Check connectivity and account availability.") from None
+
+
+def main():
+    """Private JSON protocol used by setup_wizard's isolated download process."""
+    from state import DATA
+    try:
+        request = json.loads(sys.stdin.buffer.read(4097))
+        if not isinstance(request, dict):
+            raise SetupError("invalid_request", "Invalid Google Play setup request.")
+        base, arm = acquire(request, DATA)
+        result = {"ok": True, "base": base.name, "arm": arm.name}
+    except SetupError as error:
+        result = {"ok": False, "error": error.code, "message": error.message}
+    except Exception:
+        result = {"ok": False, "error": "play_download", "message": "Google Play setup failed unexpectedly."}
+    print(json.dumps(result))
+
+
+if __name__ == "__main__":
+    main()

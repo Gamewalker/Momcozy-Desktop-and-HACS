@@ -583,8 +583,29 @@ func invokeHelper(ctx context.Context, path string, input map[string]any) map[st
 		return fail("helper_failed", "Cannot supervise the setup helper.")
 	}
 	defer cleanup()
-	if process.Wait() != nil || output.overflow {
-		return fail("helper_failed", "Setup could not finish. Check your files, app version and connection.")
+	waitErr := process.Wait()
+	if !output.overflow {
+		var result map[string]any
+		if json.Unmarshal(output.Bytes(), &result) == nil {
+			return result
+		}
+	}
+	if waitErr != nil {
+		fmt.Fprintln(os.Stderr, "Momcozy setup helper ended unexpectedly:", waitErr)
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return fail("helper_timeout", "The setup helper timed out before it could return an error.")
+		}
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return fail("helper_cancelled", "The setup operation was cancelled.")
+		}
+		var exitErr *exec.ExitError
+		if errors.As(waitErr, &exitErr) && exitErr.ExitCode() < 0 {
+			return fail("helper_terminated", "The setup helper was terminated unexpectedly, usually because the system ran out of memory. Check the Home Assistant app log.")
+		}
+		return fail("helper_failed", "The setup helper stopped before it could return an error. Check the Home Assistant app log.")
+	}
+	if output.overflow {
+		return fail("helper_failed", "The setup helper returned too much diagnostic output. Check the Home Assistant app log.")
 	}
 	var result map[string]any
 	if json.Unmarshal(output.Bytes(), &result) != nil {

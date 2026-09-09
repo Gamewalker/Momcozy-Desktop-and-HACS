@@ -19,9 +19,20 @@ import tempfile
 import zipfile
 from setup_errors import SetupError
 
-SCRIPTS = {"prepare_apk", "decode_tuya_key", "momcozy_login", "tuya_login",
+SCRIPTS = {"prepare_apk", "play_download", "decode_tuya_key", "momcozy_login", "tuya_login",
            "list_momcozy_devices", "tuya_camera_info", "make_bridge_config"}
 ADDON_MAX_CAMERAS = 10
+
+PREPARE_APK_ERRORS = (
+    ("Expected a versioned com.lute.momcozy package.", "Die Basis-APK ist keine versionierte Momcozy-App."),
+    ("Base and ARM64 APKs must belong to the same app build.", "Basis- und ARM64-APK stammen nicht aus demselben App-Build."),
+    ("Base and ARM64 APKs must carry matching signing certificates.", "Basis- und ARM64-APK besitzen unterschiedliche Signaturen."),
+    ("SDK manifest values are missing or require resource resolution.", "In dieser App-Version fehlen direkt auslesbare Tuya-SDK-Werte."),
+    ("The ARM64 APK does not contain the required Momcozy native library.", "Die ARM64-APK enthält nicht die benötigte Momcozy-Bibliothek."),
+    ("One of the selected files is not a valid APK.", "Mindestens eine ausgewählte Datei ist keine gültige APK."),
+    ("The Tuya key could not be decoded from this app version.", "Der Tuya-Schlüssel konnte aus dieser App-Version nicht dekodiert werden."),
+    ("SDK signing data could not be derived from this app version.", "Die SDK-Signaturdaten konnten aus dieser App-Version nicht ermittelt werden."),
+)
 
 
 def script_command(name, *args):
@@ -52,7 +63,56 @@ def run_script(name, stage, *args):
     result = subprocess.run(script_command(name, *args), env=env, capture_output=True,
                             timeout=300, creationflags=0x08000000 if os.name == "nt" else 0)
     if result.returncode:
-        raise SetupError("setup_failed", "Setup step failed: " + name + ". Check app version and account details.")
+        if name == "prepare_apk":
+            stderr = result.stderr.decode("utf-8", errors="replace") if isinstance(result.stderr, bytes) else str(result.stderr or "")
+            for internal, public in PREPARE_APK_ERRORS:
+                if internal in stderr:
+                    raise SetupError("apk_prepare", public)
+            if "lib/arm64-v8a/libthing_security_algorithm.so" in stderr:
+                raise SetupError("apk_prepare", "Die ARM64-APK enthält nicht die benötigte Momcozy-Bibliothek.")
+            raise SetupError("apk_prepare", "Die APKs konnten nicht verarbeitet werden. Sie sind möglicherweise beschädigt oder mit dieser App-Version nicht kompatibel.")
+        raise SetupError("setup_failed", "Setup step failed: " + name + ". Check the corresponding login or app data.")
+
+
+def acquire_play(request, stage):
+    """Download through a short-lived process so APK preparation gets its memory back."""
+    payload = {
+        "playAuth": request.get("playAuth", "browser"),
+        "playVersionCode": request.get("playVersionCode", 0),
+    }
+    env = dict(os.environ, MOMCOZY_DATA_DIR=str(stage))
+    try:
+        process = subprocess.run(
+            script_command("play_download"), input=json.dumps(payload), text=True,
+            env=env, capture_output=True, timeout=600,
+            creationflags=0x08000000 if os.name == "nt" else 0,
+        )
+    except subprocess.TimeoutExpired:
+        raise SetupError("play_timeout", "Google Play setup timed out. Sign in again.") from None
+    if process.returncode:
+        raise SetupError("play_helper_terminated", "Google Play setup was terminated unexpectedly, usually because the system ran out of memory.")
+    try:
+        result = json.loads(process.stdout)
+    except (TypeError, json.JSONDecodeError):
+        raise SetupError("play_helper_failed", "Google Play setup ended without a usable error response.") from None
+    if not isinstance(result, dict) or not result.get("ok"):
+        code = result.get("error") if isinstance(result, dict) else None
+        message = result.get("message") if isinstance(result, dict) else None
+        raise SetupError(
+            code if isinstance(code, str) else "play_helper_failed",
+            message if isinstance(message, str) else "Google Play setup failed without an error description.",
+        )
+    paths = []
+    root = stage.resolve()
+    for key in ("base", "arm"):
+        name = result.get(key)
+        if not isinstance(name, str) or Path(name).name != name:
+            raise SetupError("play_helper_failed", "Google Play setup returned an invalid APK location.")
+        path = (stage / name).resolve()
+        if path.parent != root or not path.is_file():
+            raise SetupError("play_helper_failed", "Google Play setup did not return both downloaded APKs.")
+        paths.append(path)
+    return paths
 
 
 def adb(request, *args):
@@ -253,8 +313,7 @@ def handle(request):
             from app_cache import remember_candidate, restore
             try:
                 if command == "preparePlay":
-                    from play_download import acquire
-                    base, arm = acquire(request, stage)
+                    base, arm = acquire_play(request, stage)
                 else:
                     base, arm = pull_apks(request, stage) if command == "prepareAndroid" else (
                         Path(request["baseApk"]).resolve(), Path(request["arm64Apk"]).resolve())

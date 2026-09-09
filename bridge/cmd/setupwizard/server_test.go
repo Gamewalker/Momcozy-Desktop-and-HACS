@@ -274,6 +274,29 @@ func TestHelperFailureDoesNotExposePath(t *testing.T) {
 		t.Fatal(result)
 	}
 }
+
+func TestHelperJSONErrorSurvivesNonzeroExit(t *testing.T) {
+	helper := filepath.Join(t.TempDir(), "helper")
+	script := "#!/bin/sh\nprintf '{\"ok\":false,\"error\":\"play_auth\",\"message\":\"Google rejected the completed sign-in.\"}'\nexit 1\n"
+	if err := os.WriteFile(helper, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	result := invokeHelper(context.Background(), helper, map[string]any{"command": "preparePlay"})
+	if result["error"] != "play_auth" || result["message"] != "Google rejected the completed sign-in." {
+		t.Fatalf("helper error was replaced by a generic process error: %#v", result)
+	}
+}
+
+func TestKilledHelperReportsTerminationInsteadOfGenericSetupFailure(t *testing.T) {
+	helper := filepath.Join(t.TempDir(), "helper")
+	if err := os.WriteFile(helper, []byte("#!/bin/sh\nkill -KILL $$\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	result := invokeHelper(context.Background(), helper, map[string]any{"command": "preparePlay"})
+	if result["error"] != "helper_terminated" {
+		t.Fatalf("terminated helper was not identified: %#v", result)
+	}
+}
 func TestRejectArchiveTraversal(t *testing.T) {
 	for _, name := range []string{"platform-tools/../../escape", `platform-tools\..\escape`, "/platform-tools/adb", "platform-tools/a:stream"} {
 		t.Run(name, func(t *testing.T) {

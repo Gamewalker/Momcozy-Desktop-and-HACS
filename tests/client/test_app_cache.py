@@ -8,7 +8,6 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "client"))
 import app_cache as cache
 import setup_wizard as wizard
-import play_download
 
 
 class AppCacheTests(unittest.TestCase):
@@ -77,7 +76,7 @@ class AppCacheTests(unittest.TestCase):
             archive, signing = self.fixture(root)
             cache.promote(archive, signing)
             request = {"command": "preparePlay", "dataDir": str(root / "new"), "appCacheDir": str(archive)}
-            with patch.object(play_download, "acquire", side_effect=wizard.SetupError("play_download", "Unavailable")):
+            with patch.object(wizard, "acquire_play", side_effect=wizard.SetupError("play_download", "Unavailable")):
                 result = wizard.handle(request)
                 self.assertTrue(result["fallbackUsed"])
                 self.assertEqual(result["appVersion"], "3.4.0")

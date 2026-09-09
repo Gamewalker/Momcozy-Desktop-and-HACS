@@ -11,6 +11,46 @@ import setup_wizard as wizard
 
 
 class SetupWizardTests(unittest.TestCase):
+    def test_google_play_download_runs_in_an_isolated_helper_process(self):
+        response = subprocess.CompletedProcess(
+            ["play_download"], 0,
+            '{"ok":true,"base":"play-base.apk","arm":"play-arm64.apk"}', "",
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            stage = Path(temp)
+            (stage / "play-base.apk").write_bytes(b"base")
+            (stage / "play-arm64.apk").write_bytes(b"arm")
+            with patch.object(wizard.subprocess, "run", return_value=response) as run:
+                base, arm = wizard.acquire_play({"playAuth": "browser", "playVersionCode": 0}, stage)
+        self.assertEqual((base.name, arm.name), ("play-base.apk", "play-arm64.apk"))
+        self.assertIn("play_download", " ".join(map(str, run.call_args.args[0])))
+        self.assertEqual(run.call_args.kwargs["input"], '{"playAuth": "browser", "playVersionCode": 0}')
+
+    def test_prepare_apk_failure_reports_the_actual_validation_problem(self):
+        failed = subprocess.CompletedProcess(
+            ["prepare_apk"], 2, b"",
+            b"prepare_apk: error: Base and ARM64 APKs must belong to the same app build.\n",
+        )
+        with patch.object(wizard.subprocess, "run", return_value=failed):
+            with self.assertRaises(wizard.SetupError) as caught:
+                wizard.run_script("prepare_apk", Path("/private/stage"), "base.apk", "arm64.apk")
+        self.assertEqual(caught.exception.code, "apk_prepare")
+        self.assertEqual(
+            caught.exception.message,
+            "Basis- und ARM64-APK stammen nicht aus demselben App-Build.",
+        )
+
+    def test_prepare_apk_failure_never_echoes_unknown_subprocess_output(self):
+        failed = subprocess.CompletedProcess(
+            ["prepare_apk"], 1, b"", b"private-token fixture-secret /private/path\n",
+        )
+        with patch.object(wizard.subprocess, "run", return_value=failed):
+            with self.assertRaises(wizard.SetupError) as caught:
+                wizard.run_script("prepare_apk", Path("/private/stage"), "base.apk", "arm64.apk")
+        self.assertEqual(caught.exception.code, "apk_prepare")
+        self.assertNotIn("fixture-secret", caught.exception.message)
+        self.assertNotIn("/private/path", caught.exception.message)
+
     def test_diagnostic_self_test_never_reads_stdin_and_keeps_traceback(self):
         with patch.object(sys, "argv", ["helper", "--self-test"]), patch.object(wizard, "handle", side_effect=RuntimeError("fixture failure")) as handle:
             with self.assertRaisesRegex(RuntimeError, "fixture failure"):

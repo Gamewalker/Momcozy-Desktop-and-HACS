@@ -16,12 +16,18 @@ def main():
     from loguru import logger
     logger.remove()
     from androguard.core.apk import APK
-    apk = APK(str(args.base_apk))
+    try:
+        apk = APK(str(args.base_apk))
+    except Exception:
+        parser.error("One of the selected files is not a valid APK.")
     if apk.get_package() != "com.lute.momcozy" or not apk.get_androidversion_name():
         parser.error("Expected a versioned com.lute.momcozy package.")
     # Future versions are attempted in the bounded ARM64 emulator. Native
     # compatibility and subsequent Tuya authentication determine acceptance.
-    arm_apk = APK(str(args.arm64_apk))
+    try:
+        arm_apk = APK(str(args.arm64_apk))
+    except Exception:
+        parser.error("One of the selected files is not a valid APK.")
     if (arm_apk.get_package() != apk.get_package()
             or arm_apk.get_androidversion_code() != apk.get_androidversion_code()):
         parser.error("Base and ARM64 APKs must belong to the same app build.")
@@ -39,16 +45,27 @@ def main():
     target = DATA/"apk/base.apk"
     if args.base_apk.resolve() != target:
         shutil.copyfile(args.base_apk, target)
-    with zipfile.ZipFile(args.arm64_apk) as archive:
-        native = archive.read("lib/arm64-v8a/libthing_security_algorithm.so")
+    try:
+        with zipfile.ZipFile(args.arm64_apk) as archive:
+            native = archive.read("lib/arm64-v8a/libthing_security_algorithm.so")
+    except KeyError:
+        parser.error("The ARM64 APK does not contain the required Momcozy native library.")
+    except (OSError, zipfile.BadZipFile):
+        parser.error("One of the selected files is not a valid APK.")
     (DATA/"native/libthing_security_algorithm.so").write_bytes(native)
     (DATA/"apk-parameters.private.json").write_text(json.dumps({name:metadata[name] for name in names}))
     from setup_wizard import script_command
-    subprocess.run(script_command("decode_tuya_key"), check=True, timeout=120)
+    try:
+        subprocess.run(script_command("decode_tuya_key"), check=True, timeout=120)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        parser.error("The Tuya key could not be decoded from this app version.")
     from tuya_mobile import parameters
     if (DATA/"signing.private.json").exists():
         parser.error("Signing configuration already exists. Use a fresh MOMCOZY_DATA_DIR for another APK.")
-    parameters()
+    try:
+        parameters()
+    except Exception:
+        parser.error("SDK signing data could not be derived from this app version.")
     print("Local signing configuration prepared. No keys are printed or uploaded.")
 
 if __name__ == "__main__":

@@ -151,7 +151,7 @@ class PlayDownloadTests(unittest.TestCase):
             def fail(request, stage):
                 (stage / "partial.apk").write_bytes(b"private")
                 raise wizard.SetupError("play_auth", "Sign-in failed")
-            with patch.object(play, "acquire", side_effect=fail), self.assertRaises(wizard.SetupError):
+            with patch.object(wizard, "acquire_play", side_effect=fail), self.assertRaises(wizard.SetupError):
                 wizard.handle({"command": "preparePlay", "dataDir": temp})
             self.assertEqual(signing.read_text(), "original")
             self.assertEqual(list(data.iterdir()), [signing])
