@@ -119,6 +119,30 @@ class PlayDownloadTests(unittest.TestCase):
             self.assertEqual(purchase.call_args.args[1], 30402)
             self.assertEqual(get_delivery.call_args.args[1], 30402)
 
+    def test_delivery_cookie_is_used_for_base_and_arm64_split(self):
+        details = AppDetails(play.PACKAGE, version_string="3.4.0", version_code=30402)
+        split = SplitInfo("config.arm64_v8a", url="https://play.googleapis.com/split", size=3,
+                          sha256=base64.urlsafe_b64encode(hashlib.sha256(b"arm").digest()).decode().rstrip("="))
+        cookies = [{"name": "MarketDA", "value": "fixture"}]
+        delivery = DeliveryResult(version_code=30402, download_url="https://play.googleapis.com/base",
+                                  download_size=4, cookies=cookies, splits=[split])
+        parsed = SimpleNamespace(get_package=lambda: play.PACKAGE, get_androidversion_name=lambda: "3.4.0",
+                                 get_androidversion_code=lambda: "30402")
+        received = []
+
+        def download(spec, dest, supplied_cookies=()):
+            received.append(supplied_cookies)
+            with zipfile.ZipFile(dest, "w") as archive:
+                archive.writestr(play.NATIVE if dest.name == "play-arm64.apk" else "AndroidManifest.xml", b"fixture")
+
+        with tempfile.TemporaryDirectory() as temp, patch.object(play, "authenticate", return_value={}), \
+                patch("goopdl.api.get_details", return_value=details), patch("goopdl.api.purchase", return_value="delivery"), \
+                patch("goopdl.api.get_delivery", return_value=delivery), patch.object(play, "download_file", side_effect=download), \
+                patch("androguard.core.apk.APK", return_value=parsed):
+            play.acquire({}, Path(temp))
+
+        self.assertEqual(received, [cookies, cookies])
+
     def test_failed_play_setup_keeps_signing_and_cleans_temporary_files(self):
         with tempfile.TemporaryDirectory() as temp:
             data = Path(temp)

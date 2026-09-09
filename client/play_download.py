@@ -126,7 +126,10 @@ def acquire(request, stage):
         if len(candidates) != 1:
             raise SetupError("apk_unsupported", "Google Play did not return a unique ARM64 split.")
         arm = stage / "play-arm64.apk"
-        download_file(candidates[0], arm)
+        # Google's delivery authorization applies to every file in this
+        # delivery, not only the base APK. Some split URLs reject requests
+        # without the delivery cookie even when the base URL accepts it.
+        download_file(candidates[0], arm, delivery.cookies)
         split = APK(str(arm))
         if (split.get_package() != PACKAGE
                 or str(split.get_androidversion_code()) != str(requested)):
