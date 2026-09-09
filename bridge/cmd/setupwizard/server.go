@@ -18,6 +18,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -32,9 +33,19 @@ var page string
 type server struct {
 	token, origin, helper, dataDir string
 	busy                           sync.Mutex
+	state                          sync.Mutex
 	cancel                         context.CancelFunc
 	readyDir, readyMode            string
 	launch                         bool
+	appMode, bridgeRunning         bool
+	parent                         context.Context
+	bridgeCancel                   context.CancelFunc
+	out                            io.Writer
+}
+
+type pageData struct {
+	Token, DataDir      string
+	AppMode, Configured bool
 }
 
 func helperPath() string {
@@ -108,9 +119,9 @@ func run(parent context.Context, helper, dataDir string, noBrowser bool, out io.
 	shutdown, stop := context.WithTimeout(context.Background(), 2*time.Second)
 	defer stop()
 	err = httpServer.Shutdown(shutdown)
-	s.busy.Lock()
+	s.state.Lock()
 	launch, readyDir, readyMode := s.launch, s.readyDir, s.readyMode
-	s.busy.Unlock()
+	s.state.Unlock()
 	if launch {
 		c := desktop.NewCommand()
 		args := []string{"--data-dir", readyDir}
@@ -129,16 +140,33 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'")
-	if r.Host != strings.TrimPrefix(s.origin, "http://") {
+	frameAncestors := "'none'"
+	if s.appMode {
+		frameAncestors = "'self'"
+	}
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors "+frameAncestors+"; form-action 'none'")
+	if s.appMode {
+		remote, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil || remote != "172.30.32.2" {
+			http.Error(w, "Ingress access required", http.StatusForbidden)
+			return
+		}
+	}
+	if !s.appMode && r.Host != strings.TrimPrefix(s.origin, "http://") {
 		http.Error(w, "Invalid host", http.StatusForbidden)
 		return
 	}
 	base := "/" + s.token + "/"
+	if s.appMode {
+		base = "/"
+	}
 	if r.URL.Path == base && r.Method == http.MethodGet {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		t := template.Must(template.New("setup").Parse(page))
-		_ = t.Execute(w, struct{ Token, DataDir string }{s.token, s.dataDir})
+		s.state.Lock()
+		configured := s.readyDir != ""
+		s.state.Unlock()
+		_ = t.Execute(w, pageData{Token: s.token, DataDir: s.dataDir, AppMode: s.appMode, Configured: configured})
 		return
 	}
 	if r.URL.Path != base+"api" {
@@ -149,7 +177,7 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "POST required", 405)
 		return
 	}
-	if r.Header.Get("Origin") != s.origin || r.Header.Get("X-Setup-Token") != s.token || !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+	if (!s.appMode && r.Header.Get("Origin") != s.origin) || r.Header.Get("X-Setup-Token") != s.token || !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
 		http.Error(w, "Invalid setup request", 403)
 		return
 	}
@@ -165,22 +193,58 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	command, _ := input["command"].(string)
+	if command == "status" && s.appMode {
+		cameras, err := cameraStatus(s.dataDir)
+		if err != nil {
+			writeJSON(w, map[string]any{"ok": false, "error": "invalid_config", "message": err.Error()})
+			return
+		}
+		s.state.Lock()
+		running := s.bridgeRunning
+		s.state.Unlock()
+		writeJSON(w, map[string]any{"ok": true, "running": running, "cameras": cameras})
+		return
+	}
 	if command == "close" {
+		if s.appMode {
+			writeJSON(w, map[string]any{"ok": false, "message": "Stop the app from Home Assistant."})
+			return
+		}
 		writeJSON(w, map[string]any{"ok": true})
 		go s.cancel()
 		return
 	}
 	if command == "launch" {
+		s.state.Lock()
 		if s.readyDir == "" {
+			s.state.Unlock()
 			writeJSON(w, map[string]any{"ok": false, "message": "Complete setup first."})
 			return
 		}
+		if s.appMode {
+			s.state.Unlock()
+			if err := s.startBridge(); err != nil {
+				writeJSON(w, map[string]any{"ok": false, "message": err.Error()})
+				return
+			}
+			writeJSON(w, map[string]any{"ok": true})
+			return
+		}
 		s.launch = true
+		s.state.Unlock()
 		writeJSON(w, map[string]any{"ok": true})
 		go s.cancel()
 		return
 	}
-	if dir, ok := input["dataDir"].(string); !ok || strings.TrimSpace(dir) == "" {
+	if s.appMode {
+		input["dataDir"] = s.dataDir
+		input["appCacheDir"] = filepath.Join(s.dataDir, "app-cache")
+		input["targetMode"] = "ha"
+		input["audioFormat"] = "aac"
+		input["ffmpegPath"] = "/usr/bin/ffmpeg"
+		input["basePort"] = 19554
+		input["addonMode"] = true
+	} else if dir, ok := input["dataDir"].(string); !ok || strings.TrimSpace(dir) == "" {
 		input["dataDir"] = s.dataDir
 	}
 	if command == "installAdb" {
@@ -202,10 +266,94 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	result := invokeHelper(ctx, s.helper, input)
 	if ok, _ := result["ok"].(bool); ok && (command == "configure" || command == "importConfig") {
+		s.state.Lock()
 		s.readyDir, _ = result["dataDir"].(string)
 		s.readyMode, _ = input["targetMode"].(string)
+		s.state.Unlock()
 	}
 	writeJSON(w, result)
+}
+
+func (s *server) startBridge() error {
+	s.state.Lock()
+	if s.bridgeRunning {
+		s.state.Unlock()
+		return nil
+	}
+	if s.readyDir == "" {
+		s.state.Unlock()
+		return errors.New("complete setup first")
+	}
+	ctx, cancel := context.WithCancel(s.parent)
+	dir := s.readyDir
+	s.bridgeCancel = cancel
+	s.bridgeRunning = true
+	s.state.Unlock()
+
+	c := desktop.NewCommand()
+	c.SetArgs([]string{"--data-dir", dir, "--no-player"})
+	c.SetOut(s.out)
+	c.SetErr(s.out)
+	go func() {
+		err := c.ExecuteContext(ctx)
+		s.state.Lock()
+		s.bridgeRunning = false
+		s.bridgeCancel = nil
+		s.state.Unlock()
+		if err != nil && ctx.Err() == nil {
+			fmt.Fprintln(s.out, "Home Assistant app bridge:", err)
+		}
+	}()
+	return nil
+}
+
+func (s *server) stopBridge() {
+	s.state.Lock()
+	cancel := s.bridgeCancel
+	s.state.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+}
+
+func cameraStatus(dir string) ([]map[string]any, error) {
+	root, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, errors.New("invalid private configuration directory")
+	}
+	manifest, err := os.ReadFile(filepath.Join(root, "cameras.private.json"))
+	if err != nil {
+		return nil, errors.New("camera configuration is not ready")
+	}
+	var names []string
+	if json.Unmarshal(manifest, &names) != nil || len(names) == 0 {
+		return nil, errors.New("camera manifest is invalid")
+	}
+	result := make([]map[string]any, 0, len(names))
+	seen := make(map[string]bool, len(names))
+	for _, name := range names {
+		if filepath.Base(name) != name || !strings.HasPrefix(name, "bridge-") || !strings.HasSuffix(name, ".private.json") || seen[name] {
+			return nil, errors.New("camera manifest is invalid")
+		}
+		seen[name] = true
+		contents, err := os.ReadFile(filepath.Join(root, name))
+		if err != nil {
+			return nil, errors.New("camera configuration is incomplete")
+		}
+		var config map[string]string
+		if json.Unmarshal(contents, &config) != nil {
+			return nil, errors.New("camera configuration is invalid")
+		}
+		port, err := strconv.Atoi(config["port"])
+		if err != nil || port < 1024 || port > 65535 || config["camera-name"] == "" || config["rtsp-user"] == "" || config["rtsp-password"] == "" {
+			return nil, errors.New("camera configuration is incomplete")
+		}
+		result = append(result, map[string]any{
+			"name": config["camera-name"], "path": config["camera-name"], "port": port,
+			"username": config["rtsp-user"], "password": config["rtsp-password"],
+		})
+	}
+	return result, nil
 }
 
 func writeJSON(w http.ResponseWriter, value any) {

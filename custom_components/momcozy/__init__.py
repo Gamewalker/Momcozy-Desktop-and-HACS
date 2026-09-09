@@ -1,4 +1,4 @@
-"""Connect Home Assistant to a separately running Momcozy RTSP bridge."""
+"""Connect Home Assistant to the local app or an external Momcozy RTSP bridge."""
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform

@@ -20,8 +20,8 @@ Use **Originalton beibehalten** for desktop sound. The assistant saves a working
 
 ## Home Assistant
 
-Choose **In Home Assistant** during setup, enable AAC and install the integration through HACS. Follow the [short HACS guide](docs/HOME_ASSISTANT.md).
+Install the **Momcozy Bridge** app from this repository, complete setup in its Home Assistant web UI and install the camera integration through HACS. The bridge then runs directly on the Home Assistant system; no additional always-on computer is needed. Follow the [Home Assistant guide](docs/HOME_ASSISTANT.md).
 
-The bridge computer stays running during playback. An internet connection is required for camera login and connection setup.
+An internet connection is required for camera login and connection setup.
 
 [Setup details](docs/SETUP.md) · [Start and update](docs/BINARIES.md) · [Archive](docs/archive/README.md) · [Contributing](CONTRIBUTING.md) · [Licenses](NOTICE.md)

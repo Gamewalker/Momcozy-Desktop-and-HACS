@@ -1,0 +1,11 @@
+.git
+.github
+.venv
+__pycache__
+graphify-out
+docs
+tests
+bin
+*.apk
+*.private.json
+*.log

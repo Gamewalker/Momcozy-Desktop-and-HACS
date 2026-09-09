@@ -1,0 +1,11 @@
+network:
+  19554/tcp: Camera 1 RTSP port
+  19555/tcp: Camera 2 RTSP port
+  19556/tcp: Camera 3 RTSP port
+  19557/tcp: Camera 4 RTSP port
+  19558/tcp: Camera 5 RTSP port
+  19559/tcp: Camera 6 RTSP port
+  19560/tcp: Camera 7 RTSP port
+  19561/tcp: Camera 8 RTSP port
+  19562/tcp: Camera 9 RTSP port
+  19563/tcp: Camera 10 RTSP port

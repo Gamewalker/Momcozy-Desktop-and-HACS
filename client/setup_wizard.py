@@ -1,7 +1,9 @@
 """Private JSON stdin/stdout setup helper, also usable as a frozen executable.
 
-The parent must serialize requests for a data directory. No credential or child
-output is returned. Android is read through adb only; nothing is installed.
+The parent must serialize requests for a data directory. Cloud credentials and
+child output are never returned; app mode may return generated local RTSP
+credentials through authenticated Home Assistant Ingress. Android is read
+through adb only; nothing is installed.
 """
 import json
 import ipaddress
@@ -18,6 +20,7 @@ from setup_errors import SetupError
 
 SCRIPTS = {"prepare_apk", "decode_tuya_key", "momcozy_login", "tuya_login",
            "list_momcozy_devices", "tuya_camera_info", "make_bridge_config"}
+ADDON_MAX_CAMERAS = 10
 
 
 def script_command(name, *args):
@@ -109,16 +112,21 @@ def pull_apks(request, stage):
 def apply_options(request, stage, manifest):
     mode = request.get("targetMode", "desktop")
     audio = request.get("audioFormat", "copy")
+    addon_mode = bool(request.get("addonMode"))
     base = int(request.get("basePort") or (19554 if mode == "ha" else 18554))
     if mode not in {"desktop", "ha"} or audio not in {"copy", "aac"} or not 1024 <= base <= 65536 - len(manifest):
         raise SetupError("invalid_options", "Choose a valid mode, audio format and port range.")
+    if addon_mode and (mode != "ha" or len(manifest) > ADDON_MAX_CAMERAS):
+        raise SetupError("invalid_options", f"The Home Assistant app supports up to {ADDON_MAX_CAMERAS} cameras.")
     host = "127.0.0.1"
+    advertised_host = host
     if mode == "ha":
         try:
             address = ipaddress.ip_address(request.get("bridgeHost", ""))
             if address.is_unspecified or address.is_loopback or address.is_multicast or not address.is_private:
                 raise ValueError()
-            host = str(address)
+            advertised_host = str(address)
+            host = "0.0.0.0" if addon_mode else advertised_host
         except ValueError:
             raise SetupError("invalid_host", "Enter this computer's private LAN IP for Home Assistant.")
     ffmpeg = request.get("ffmpegPath") or shutil.which("ffmpeg")
@@ -132,15 +140,20 @@ def apply_options(request, stage, manifest):
         config.pop("rtsp-user", None)
         config.pop("rtsp-password", None)
         config.pop("ffmpeg-path", None)
-        camera = {"host": host, "port": base + index, "path": config["camera-name"]}
+        camera = {"host": advertised_host, "port": base + index, "path": config["camera-name"]}
         if audio == "aac":
             config["ffmpeg-path"] = str(Path(ffmpeg).resolve())
         if mode == "ha":
             config["rtsp-user"] = "homeassistant"
             config["rtsp-password"] = secrets.token_urlsafe(24)
             camera["username"] = "homeassistant"
-            # Deliberately return a path, never RTSP or cloud credentials. The
-            # local UI can explain where HA credentials are stored privately.
+            if addon_mode:
+                # Ingress is authenticated by Home Assistant. Returning the
+                # generated RTSP password here lets the user configure HACS
+                # without exposing the add-on's private /data volume.
+                camera["password"] = config["rtsp-password"]
+            # The desktop UI returns only a path; its credentials remain in the
+            # local private file. App mode is handled above through HA Ingress.
             config["device-id"] += "-ha-" + secrets.token_hex(4)
         camera["configFile"] = name
         file.write_text(json.dumps(config), encoding="utf-8")

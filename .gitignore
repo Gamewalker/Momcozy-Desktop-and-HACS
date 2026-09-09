@@ -16,3 +16,4 @@ momcozy.txt
 .env
 .tuya-data/
 .DS_Store
+graphify-out/

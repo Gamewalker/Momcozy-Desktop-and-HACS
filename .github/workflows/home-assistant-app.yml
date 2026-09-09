@@ -1,0 +1,60 @@
+name: Home Assistant app image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'bridge/**'
+      - 'client/**'
+      - 'home_assistant_app/**'
+      - 'requirements.txt'
+      - 'LICENSE'
+      - 'NOTICE.md'
+      - '.github/workflows/home-assistant-app.yml'
+  pull_request:
+    paths:
+      - 'bridge/**'
+      - 'client/**'
+      - 'home_assistant_app/**'
+      - 'requirements.txt'
+      - 'LICENSE'
+      - 'NOTICE.md'
+      - '.github/workflows/home-assistant-app.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      - if: github.event_name != 'pull_request'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: app
+        shell: bash
+        run: |
+          version="$(sed -n 's/^version: "\([^"]*\)"/\1/p' home_assistant_app/config.yaml)"
+          test -n "$version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: home_assistant_app/Dockerfile
+          platforms: ${{ github.event_name == 'pull_request' && 'linux/amd64' || 'linux/amd64,linux/arm64' }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ghcr.io/gamewalker/momcozy-bridge-app:${{ steps.app.outputs.version }}
+          build-args: |
+            BUILD_VERSION=${{ steps.app.outputs.version }}
+            BUILD_ARCH=aarch64|amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

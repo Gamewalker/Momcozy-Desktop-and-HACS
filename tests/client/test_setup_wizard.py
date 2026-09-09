@@ -134,6 +134,34 @@ class SetupWizardTests(unittest.TestCase):
             self.assertNotIn(saved["rtsp-password"], str(result))
             self.assertEqual(result[0]["port"], 19554)
 
+    def test_addon_options_bind_container_and_return_ingress_credentials(self):
+        with tempfile.TemporaryDirectory() as temp:
+            stage = Path(temp)
+            config = stage / "bridge-1.private.json"
+            config.write_text('{"camera-name":"bm04_1","device-id":"test"}')
+            result = wizard.apply_options(
+                {"targetMode": "ha", "bridgeHost": "192.168.1.2", "addonMode": True,
+                 "audioFormat": "aac", "ffmpegPath": sys.executable},
+                stage, [config.name])
+            saved = json.loads(config.read_text())
+            self.assertEqual(saved["listen-host"], "0.0.0.0")
+            self.assertEqual(result[0]["host"], "192.168.1.2")
+            self.assertEqual(result[0]["username"], "homeassistant")
+            self.assertEqual(result[0]["password"], saved["rtsp-password"])
+
+    def test_addon_options_reject_more_than_exposed_ports(self):
+        with tempfile.TemporaryDirectory() as temp:
+            stage = Path(temp)
+            names = []
+            for index in range(wizard.ADDON_MAX_CAMERAS + 1):
+                name = f"bridge-{index}.private.json"
+                (stage / name).write_text(json.dumps({"camera-name": f"bm04_{index}", "device-id": str(index)}))
+                names.append(name)
+            with self.assertRaises(wizard.SetupError):
+                wizard.apply_options(
+                    {"targetMode": "ha", "bridgeHost": "192.168.1.2", "addonMode": True},
+                    stage, names)
+
     def test_pull_selects_arm64_library_not_split_filename(self):
         import zipfile
         with tempfile.TemporaryDirectory() as temp:
