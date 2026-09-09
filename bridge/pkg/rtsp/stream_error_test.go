@@ -40,9 +40,11 @@ func waitStreamRemoved(t *testing.T, server *RTSPServer, streamId string) {
 	t.Fatalf("stream %s still in server map after timeout", streamId)
 }
 
-func TestHandleBridgeErrorClosesClientsAndClearsActive(t *testing.T) {
+func TestHandleBridgeErrorKeepsClientsAndStartsRecovery(t *testing.T) {
 	server, stream := newTestCameraStream(t)
 	stream.active = true
+	started := make(chan struct{}, 1)
+	stream.startStreamOverride = func() { started <- struct{}{} }
 
 	clientConn, serverConn := net.Pipe()
 	defer clientConn.Close()
@@ -60,23 +62,38 @@ func TestHandleBridgeErrorClosesClientsAndClearsActive(t *testing.T) {
 	active := stream.active
 	connecting := stream.connecting
 	stream.mutex.RUnlock()
-	if active || connecting {
-		t.Fatalf("expected inactive stream after error, active=%v connecting=%v", active, connecting)
+	if active || !connecting {
+		t.Fatalf("expected recovering stream after error, active=%v connecting=%v", active, connecting)
 	}
 
-	waitStreamRemoved(t, server, stream.streamId)
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("bridge error did not start recovery")
+	}
 
-	_ = clientConn.SetReadDeadline(time.Now().Add(500 * time.Millisecond))
+	server.mutex.RLock()
+	registered := server.streams[stream.streamId]
+	server.mutex.RUnlock()
+	if registered != stream {
+		t.Fatal("recovering stream was removed from the server")
+	}
+
+	_ = clientConn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
 	buf := make([]byte, 1)
 	_, err := clientConn.Read(buf)
-	if err != io.EOF && !errors.Is(err, net.ErrClosed) && err.Error() != "io: read/write on closed pipe" {
-		t.Fatalf("expected closed client conn (EOF), got %v", err)
+	if err == io.EOF || errors.Is(err, net.ErrClosed) || err == nil {
+		t.Fatalf("expected live RTSP connection during recovery, got %v", err)
+	}
+	if netErr, ok := err.(net.Error); !ok || !netErr.Timeout() {
+		t.Fatalf("expected read timeout on live RTSP connection, got %v", err)
 	}
 }
 
 func TestHandleBridgeErrorReentrancy(t *testing.T) {
 	server, stream := newTestCameraStream(t)
 	stream.active = true
+	stream.startStreamOverride = func() {}
 
 	clientConn, serverConn := net.Pipe()
 	defer clientConn.Close()
@@ -97,13 +114,18 @@ func TestHandleBridgeErrorReentrancy(t *testing.T) {
 	handling := stream.handlingError
 	stream.mutex.RUnlock()
 	if active {
-		t.Fatal("expected inactive after errors")
+		t.Fatal("expected inactive while recovering")
 	}
 	if handling {
 		t.Fatal("handlingError should be cleared after handleBridgeError returns")
 	}
 
-	waitStreamRemoved(t, server, stream.streamId)
+	server.mutex.RLock()
+	registered := server.streams[stream.streamId]
+	server.mutex.RUnlock()
+	if registered != stream {
+		t.Fatal("duplicate error removed the recovering stream")
+	}
 }
 
 func TestRemoveStreamSkipsReplacementInstance(t *testing.T) {
@@ -188,6 +210,16 @@ func TestReplaceBridgeReattachesErrorHandler(t *testing.T) {
 	if first == nil || first.OnError == nil {
 		t.Fatal("expected a bridge with an error handler on a new stream")
 	}
+	clientConn, serverConn := net.Pipe()
+	defer clientConn.Close()
+	defer serverConn.Close()
+	if err := first.rtpForwarder.AddTCPClient("viewer", serverConn, 0, 2, 4); err != nil {
+		t.Fatalf("add viewer: %v", err)
+	}
+	first.rtpForwarder.PlayClient("viewer")
+	stream.clients["viewer"] = &RTSPClient{conn: serverConn, session: "viewer", stream: stream}
+	stream.startStreamOverride = func() {}
+	forwarder := first.rtpForwarder
 
 	stream.handleBridgeError(errors.New("WebRTC connection failed/closed"))
 
@@ -204,6 +236,15 @@ func TestReplaceBridgeReattachesErrorHandler(t *testing.T) {
 	}
 	if stream.webrtcBridge.OnError == nil {
 		t.Fatal("replacement bridge must have the error handler attached")
+	}
+	if stream.webrtcBridge.rtpForwarder != forwarder || forwarder.GetClientCount() != 1 {
+		t.Fatal("replacement bridge must retain the active RTSP viewer")
+	}
+	forwarder.mutex.RLock()
+	playing := forwarder.clients["viewer"] != nil && forwarder.clients["viewer"].playing
+	forwarder.mutex.RUnlock()
+	if !playing {
+		t.Fatal("replacement bridge must retain the viewer's PLAY state")
 	}
 }
 

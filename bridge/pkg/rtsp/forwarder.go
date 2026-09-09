@@ -96,6 +96,43 @@ func NewRTPForwarder() *RTPForwarder {
 	}
 }
 
+// ResetMedia prepares a forwarder for a replacement WebRTC session while
+// retaining RTSP transports and their playing state. Viewers can therefore
+// continue receiving packets on the same RTSP connection after a camera-side
+// disconnect.
+func (rf *RTPForwarder) ResetMedia() {
+	rf.stopAudioEncoder()
+	rf.mutex.Lock()
+	defer rf.mutex.Unlock()
+	rf.audioPayloadType = 0
+	rf.audioAAC = false
+	rf.audioClockScale = 0
+	rf.isHEVC = false
+	rf.videoSSRC = 0
+	rf.audioSSRC = 1
+	rf.firstVideoPacket = true
+	rf.firstAudioPacket = true
+	rf.spsPacket = nil
+	rf.ppsPacket = nil
+	rf.videoTsStarted = false
+	rf.audioTsStarted = false
+}
+
+func (rf *RTPForwarder) SetBackchannelHandler(handler func(*rtp.Packet)) {
+	rf.mutex.Lock()
+	rf.OnBackchannelAudio = handler
+	rf.mutex.Unlock()
+}
+
+func (rf *RTPForwarder) ForwardBackchannel(packet *rtp.Packet) {
+	rf.mutex.RLock()
+	handler := rf.OnBackchannelAudio
+	rf.mutex.RUnlock()
+	if handler != nil {
+		handler(packet)
+	}
+}
+
 func (rf *RTPForwarder) AddUDPClient(sessionID string, videoRTPPort, audioRTPPort int) error {
 	rf.mutex.Lock()
 	defer rf.mutex.Unlock()
@@ -586,9 +623,7 @@ func (rf *RTPForwarder) handleUDPBackchannelRTP(sessionID string, listener *net.
 		}
 
 		// Forward to WebRTC bridge
-		if rf.OnBackchannelAudio != nil {
-			rf.OnBackchannelAudio(packet)
-		}
+		rf.ForwardBackchannel(packet)
 	}
 }
 

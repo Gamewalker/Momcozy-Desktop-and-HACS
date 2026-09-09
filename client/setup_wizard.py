@@ -217,7 +217,8 @@ def apply_options(request, stage, manifest):
         config.pop("rtsp-user", None)
         config.pop("rtsp-password", None)
         config.pop("ffmpeg-path", None)
-        camera = {"host": advertised_host, "port": base + index, "path": config["camera-name"]}
+        camera = {"name": config["camera-name"], "host": advertised_host,
+                  "port": base + index, "path": config["camera-name"]}
         if audio == "aac":
             config["ffmpeg-path"] = str(Path(ffmpeg).resolve())
         if mode == "ha":

@@ -89,7 +89,7 @@ func NewWebRTCBridge(camera *storage.CameraInfo, streamResolution string, user *
 		cancel:         cancel,
 	}
 
-	wb.rtpForwarder.OnBackchannelAudio = wb.ForwardBackchannelAudioPacket
+	wb.rtpForwarder.SetBackchannelHandler(wb.ForwardBackchannelAudioPacket)
 
 	return wb
 }
@@ -296,17 +296,26 @@ func (wb *WebRTCBridge) Start() error {
 }
 
 func (wb *WebRTCBridge) Stop() {
+	wb.stop(false)
+}
+
+// stopPreservingClients tears down only the camera-facing session. The RTP
+// forwarder retains the RTSP transports so a replacement bridge can resume
+// the existing VLC/Home Assistant session.
+func (wb *WebRTCBridge) stopPreservingClients() *RTPForwarder {
+	wb.stop(true)
+	return wb.rtpForwarder
+}
+
+func (wb *WebRTCBridge) stop(preserveClients bool) {
 	wb.mutex.Lock()
 	defer wb.mutex.Unlock()
-	wb.rtpForwarder.stopAudioEncoder()
-
-	if !wb.connected {
-		return
-	}
-
+	wasConnected := wb.connected
 	wb.connected = false
 
-	core.Logger.Info().Msgf("Stopping WebRTC bridge for camera: %s", wb.camera.DeviceName)
+	if wasConnected {
+		core.Logger.Info().Msgf("Stopping WebRTC bridge for camera: %s", wb.camera.DeviceName)
+	}
 
 	// Cancel context to stop all goroutines
 	wb.cancel()
@@ -332,11 +341,15 @@ func (wb *WebRTCBridge) Stop() {
 	}
 
 	// Stop RTP forwarder
-	if wb.rtpForwarder != nil {
+	if wb.rtpForwarder != nil && preserveClients {
+		wb.rtpForwarder.ResetMedia()
+	} else if wb.rtpForwarder != nil {
 		wb.rtpForwarder.Stop()
 	}
 
-	core.Logger.Info().Msgf("WebRTC bridge stopped for camera: %s", wb.camera.DeviceName)
+	if wasConnected {
+		core.Logger.Info().Msgf("WebRTC bridge stopped for camera: %s", wb.camera.DeviceName)
+	}
 }
 
 func (wb *WebRTCBridge) IsConnected() bool {

@@ -585,10 +585,22 @@ func (cs *CameraStream) startStream() {
 	}
 	cs.mutex.Unlock()
 
-	for attempt := 1; attempt <= 2; attempt++ {
+	retryDelays := []time.Duration{0, 3 * time.Second, 10 * time.Second, 30 * time.Second}
+	for attempt := 1; ; attempt++ {
 		if attempt > 1 {
-			core.Logger.Info().Msgf("Retrying stream for camera %s (attempt %d/2)", cs.camera.DeviceName, attempt)
-			time.Sleep(3 * time.Second)
+			delay := retryDelays[min(attempt-1, len(retryDelays)-1)]
+			core.Logger.Info().Msgf("Retrying stream for camera %s (attempt %d, in %v)", cs.camera.DeviceName, attempt, delay)
+			timer := time.NewTimer(delay)
+			if cs.server != nil {
+				select {
+				case <-timer.C:
+				case <-cs.server.ctx.Done():
+					timer.Stop()
+					return
+				}
+			} else {
+				<-timer.C
+			}
 		}
 
 		cs.mutex.Lock()
@@ -596,8 +608,13 @@ func (cs *CameraStream) startStream() {
 			cs.mutex.Unlock()
 			return
 		}
+		if len(cs.clients) == 0 {
+			cs.stopStreamInternal()
+			cs.mutex.Unlock()
+			return
+		}
 
-		core.Logger.Info().Msgf("Starting stream for camera: %s (attempt %d/2)", cs.camera.DeviceName, attempt)
+		core.Logger.Info().Msgf("Starting stream for camera: %s (attempt %d)", cs.camera.DeviceName, attempt)
 
 		// A retry always needs a fresh PeerConnection, and so does a first
 		// attempt on a bridge that has already run: Stop() cancels its context
@@ -618,13 +635,14 @@ func (cs *CameraStream) startStream() {
 			return
 		}
 
-		core.Logger.Error().Err(err).Msgf("Failed to start WebRTC bridge (attempt %d/2)", attempt)
+		core.Logger.Error().Err(err).Msgf("Failed to start WebRTC bridge (attempt %d)", attempt)
+		if len(cs.clients) == 0 {
+			cs.stopStreamInternal()
+			cs.mutex.Unlock()
+			return
+		}
 		cs.mutex.Unlock()
 	}
-
-	cs.mutex.Lock()
-	cs.stopStreamInternal()
-	cs.mutex.Unlock()
 }
 
 func (cs *CameraStream) stopStream() {
@@ -636,9 +654,10 @@ func (cs *CameraStream) stopStream() {
 // replaceBridge swaps in a fresh WebRTC bridge, rewired to the server's mobile
 // and MQTT clients, with the error handler attached. Callers must hold cs.mutex.
 func (cs *CameraStream) replaceBridge() {
+	var forwarder *RTPForwarder
 	if cs.webrtcBridge != nil {
 		cs.webrtcBridge.OnError = nil
-		cs.webrtcBridge.Stop()
+		forwarder = cs.webrtcBridge.stopPreservingClients()
 	}
 
 	var storageManager *storage.StorageManager
@@ -646,6 +665,10 @@ func (cs *CameraStream) replaceBridge() {
 		storageManager = cs.server.storageManager
 	}
 	cs.webrtcBridge = NewWebRTCBridge(cs.camera, cs.resolution, cs.user, storageManager)
+	if forwarder != nil {
+		cs.webrtcBridge.rtpForwarder = forwarder
+		forwarder.SetBackchannelHandler(cs.webrtcBridge.ForwardBackchannelAudioPacket)
+	}
 
 	if cs.server != nil {
 		cs.webrtcBridge.Talkback = cs.server.Talkback
@@ -674,11 +697,14 @@ func (cs *CameraStream) attachBridgeErrorHandler() {
 	}
 }
 
-// handleBridgeError tears down a failed WebRTC session and force-closes RTSP clients
-// so they reconnect against a fresh stream (required for persistent clients like Scrypted).
+// handleBridgeError replaces only the failed camera-facing WebRTC session. The
+// RTSP clients and transports remain live so VLC and Home Assistant resume as
+// soon as the replacement starts producing packets.
 func (cs *CameraStream) handleBridgeError(err error) {
 	cs.mutex.Lock()
-	if cs.handlingError || (!cs.active && !cs.connecting) {
+	// While a replacement is connecting, Start handles its own failure and
+	// retry. Ignore late callbacks from the bridge that was just stopped.
+	if cs.handlingError || cs.connecting || !cs.active {
 		cs.mutex.Unlock()
 		return
 	}
@@ -686,23 +712,25 @@ func (cs *CameraStream) handleBridgeError(err error) {
 
 	core.Logger.Error().Err(err).Msgf("WebRTC error for camera %s", cs.camera.DeviceName)
 
-	clients := make([]*RTSPClient, 0, len(cs.clients))
-	for _, client := range cs.clients {
-		clients = append(clients, client)
+	if len(cs.clients) == 0 {
+		cs.stopStreamInternal()
+		cs.handlingError = false
+		cs.mutex.Unlock()
+		return
 	}
 
-	// Clear OnError before Stop so PeerConnection.Close cannot re-enter this path.
-	if cs.webrtcBridge != nil {
-		cs.webrtcBridge.OnError = nil
-	}
-	cs.stopStreamInternal()
+	cs.active = false
+	cs.connecting = true
+	cs.replaceBridge()
+	cs.bridgeStarted = false
 	cs.handlingError = false
+	startOverride := cs.startStreamOverride
 	cs.mutex.Unlock()
 
-	for _, client := range clients {
-		if client.conn != nil {
-			_ = client.conn.Close()
-		}
+	if startOverride != nil {
+		go startOverride()
+	} else {
+		go cs.startStream()
 	}
 }
 

@@ -193,6 +193,7 @@ class SetupWizardTests(unittest.TestCase):
                 stage, [config.name])
             saved = json.loads(config.read_text())
             self.assertEqual(saved["listen-host"], "0.0.0.0")
+            self.assertEqual(result[0]["name"], "bm04_1")
             self.assertEqual(result[0]["host"], "192.168.1.2")
             self.assertEqual(result[0]["username"], "homeassistant")
             self.assertEqual(result[0]["password"], saved["rtsp-password"])
