@@ -5,6 +5,8 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 jobs:
   bridge-audio:
     runs-on: ubuntu-latest
@@ -14,7 +16,13 @@ jobs:
         with:
           go-version-file: bridge/go.mod
           cache-dependency-path: bridge/go.sum
-      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install FFmpeg from Ubuntu repositories
+        run: |
+          sudo apt-get update \
+            -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources \
+            -o Dir::Etc::sourceparts=- \
+            -o APT::Get::List-Cleanup=0
+          sudo apt-get install -y ffmpeg
       - run: go test ./...
         working-directory: bridge
         env:
@@ -26,7 +34,13 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0 (Node.js 24)
         with:
           python-version: '3.14'
-      - run: sudo apt-get update && sudo apt-get install -y libturbojpeg ffmpeg
+      - name: Install media libraries from Ubuntu repositories
+        run: |
+          sudo apt-get update \
+            -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/ubuntu.sources \
+            -o Dir::Etc::sourceparts=- \
+            -o APT::Get::List-Cleanup=0
+          sudo apt-get install -y libturbojpeg ffmpeg
       - run: python -m pip install -r tests/home_assistant/requirements.txt
       - run: python -m unittest discover -s tests/home_assistant -p test_rtsp.py -v
       - run: python -m pytest -o asyncio_mode=auto tests/home_assistant/test_integration.py
