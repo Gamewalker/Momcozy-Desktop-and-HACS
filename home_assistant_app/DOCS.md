@@ -8,27 +8,28 @@ This app runs the Momcozy bridge on Home Assistant OS or a supervised Home Assis
 2. Install **Momcozy Bridge**, enable automatic startup and start it.
 3. Open its web UI and complete the camera setup.
 4. Install this repository's **Momcozy Bridge** integration through HACS.
-5. Add one integration entry per camera. Use the Home Assistant machine's LAN IP and copy the port, path, RTSP username and password shown in the app web UI.
+5. Add one integration entry per camera. Copy the Home Assistant host, port, path, RTSP username and password shown in the app web UI.
 
 The default RTSP ports are `19554` through `19563`. If you change an external port on the app's Network page, enter that changed port in the HACS integration.
 
 ## First-time setup
 
-The simplest source is an Android phone connected by USB to the Home Assistant machine. Enable USB debugging, approve the Home Assistant host on the phone and leave the Momcozy app installed. ADB and FFmpeg are already included in the app image.
+The setup has two app sources:
 
-Other supported sources:
+- **Google Play:** click **App vorbereiten** and sign in directly to Google in the isolated browser shown inside the app. The temporary browser profile, cookies and internally exchanged credentials are discarded after the download.
+- **Own APK files:** select and upload both the base APK and the matching ARM64 split APK. The files are validated locally and removed from the temporary upload afterward.
 
-- Place your own base and ARM64 APK files in this app's configuration folder and use paths such as `/config/base.apk` and `/config/split_config.arm64_v8a.apk`.
-- Place an existing private desktop configuration below `/config/import` and select **Vorhandene Kamerakonfiguration übernehmen**.
-- Use Google Play with your own AAS token. Browser-based Google login cannot open a desktop browser from inside the Home Assistant container.
+The Home Assistant IP or DNS name is prefilled from the address used to open the app. It remains editable, which is useful when Home Assistant was opened through an external URL.
+
+Home Assistant does not support the camera's original audio codec. The app therefore selects AAC and uses its included FFmpeg to convert audio; video is passed through unchanged.
 
 Momcozy sign-in requires an email address and password set directly on the Momcozy account. Google or Facebook sign-in is not supported.
 
 ## Security and backups
 
-The setup page is reachable only through authenticated Home Assistant Ingress. Momcozy/Tuya session data and RTSP passwords are stored in the app's private `/data` volume and are included in Home Assistant app backups. The public `/config` mount is only used for files you deliberately import.
+The setup page is reachable only through authenticated Home Assistant Ingress. Momcozy/Tuya session data and RTSP passwords are stored in the app's private `/data` volume and are included in Home Assistant app backups.
 
-RTSP ports are exposed on the local Home Assistant host and protected with a generated username and password. Do not forward them to the internet.
+RTSP ports are exposed on the local Home Assistant host and protected with a generated username and password. Uploaded APKs are processed locally and are not retained as uploads. Do not forward RTSP ports to the internet.
 
 ## Limits
 

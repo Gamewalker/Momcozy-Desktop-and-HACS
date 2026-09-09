@@ -12,10 +12,10 @@
 ## Setup assistant
 
 1. Start `momcozy-desktop.exe` on Windows or `./momcozy-desktop` on Linux/macOS.
-2. Select **Von Google Play herunterladen · ohne Android-Gerät**.
+2. Select **Über Google Play anmelden und laden**.
 3. Keep the default archive and fallback settings. Click **App vorbereiten** and complete the Google sign-in in the browser window.
 4. Enter the email address and password of your Momcozy account.
-5. Select **Auf diesem Desktop mit VLC** and **Originalton beibehalten**. For HA, follow [Home Assistant](HOME_ASSISTANT.md).
+5. Select **Auf diesem Desktop mit VLC** and **Kamera-Originalton · für VLC**. For HA, follow [Home Assistant](HOME_ASSISTANT.md).
 6. Click **Kameras einrichten**, then **Kameras jetzt starten**.
 
 Keep the program window open. Later, starting the executable opens your configured cameras.
@@ -27,7 +27,7 @@ Run from the extracted package folder:
 - Windows: `.\momcozy-desktop.exe setup`
 - Linux/macOS: `./momcozy-desktop setup`
 
-For a separate installation, choose an empty **Privater Zielordner**. Keep the existing **Privates App-Archiv** path to reuse the saved working app version.
+For a separate installation, choose an empty **Privater Zielordner**. As an alternative to Google Play, the assistant can upload a matching base APK and ARM64 APK directly.
 
 ## Quick fixes
 

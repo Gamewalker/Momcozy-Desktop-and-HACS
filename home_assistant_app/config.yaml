@@ -1,5 +1,5 @@
 name: Momcozy Bridge
-version: "0.1.0"
+version: "0.1.1"
 slug: momcozy_bridge
 description: Run the Momcozy camera bridge directly on Home Assistant
 url: https://github.com/Gamewalker/Momcozy-Desktop-and-HACS/tree/main/home_assistant_app
@@ -9,7 +9,7 @@ arch:
 image: ghcr.io/gamewalker/momcozy-bridge-app
 startup: application
 boot: auto
-init: false
+init: true
 ingress: true
 ingress_port: 8099
 panel_icon: mdi:baby-face-outline
@@ -17,12 +17,6 @@ panel_title: Momcozy
 panel_admin: true
 backup: cold
 stage: experimental
-usb: true
-udev: true
-map:
-  - type: addon_config
-    read_only: false
-    path: /config
 ports:
   19554/tcp: 19554
   19555/tcp: 19555

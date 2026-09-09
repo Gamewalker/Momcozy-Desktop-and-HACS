@@ -9,6 +9,7 @@ import json
 import ipaddress
 import os
 from pathlib import Path
+import re
 import runpy
 import secrets
 import shutil
@@ -121,14 +122,25 @@ def apply_options(request, stage, manifest):
     host = "127.0.0.1"
     advertised_host = host
     if mode == "ha":
+        supplied_host = str(request.get("bridgeHost", "")).strip().rstrip(".")
+        invalid_host_message = ("Enter the Home Assistant LAN IP or DNS name."
+                                if addon_mode else "Enter this computer's private LAN IP for Home Assistant.")
         try:
-            address = ipaddress.ip_address(request.get("bridgeHost", ""))
-            if address.is_unspecified or address.is_loopback or address.is_multicast or not address.is_private:
-                raise ValueError()
-            advertised_host = str(address)
-            host = "0.0.0.0" if addon_mode else advertised_host
+            address = ipaddress.ip_address(supplied_host)
         except ValueError:
-            raise SetupError("invalid_host", "Enter this computer's private LAN IP for Home Assistant.")
+            dns_name = re.fullmatch(
+                r"(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)*"
+                r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?",
+                supplied_host,
+            )
+            if not addon_mode or not dns_name or supplied_host.lower() == "localhost":
+                raise SetupError("invalid_host", invalid_host_message)
+            advertised_host = supplied_host.lower()
+        else:
+            if address.is_unspecified or address.is_loopback or address.is_multicast or not address.is_private:
+                raise SetupError("invalid_host", invalid_host_message)
+            advertised_host = str(address)
+        host = "0.0.0.0" if addon_mode else advertised_host
     ffmpeg = request.get("ffmpegPath") or shutil.which("ffmpeg")
     if audio == "aac" and (not ffmpeg or not Path(ffmpeg).is_file()):
         raise SetupError("ffmpeg_missing", "AAC requires FFmpeg. Select its executable or install it first.")

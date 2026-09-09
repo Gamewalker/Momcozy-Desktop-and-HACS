@@ -74,14 +74,12 @@ class PlayDownloadTests(unittest.TestCase):
                 play.download_file(item(b"abc", sha256=""), Path("unused.apk"))
             opener.assert_not_called()
 
-    def test_direct_auth_does_not_use_dispenser_cache_or_environment(self):
-        with patch("goopdl.auth._direct_auth", return_value={"authToken": "fixture"}) as direct, \
-                patch("goopdl.auth.fetch_token") as dispenser, patch("goopdl.auth.save_auth") as cache:
-            play.authenticate({"playAuth": "token", "playEmail": "test@example.org", "playToken": "fake-aas"})
-            self.assertEqual(direct.call_args.args, ("test@example.org", "fake-aas"))
-            self.assertEqual(direct.call_args.kwargs["arch"], "arm64")
-            dispenser.assert_not_called()
-            cache.assert_not_called()
+    def test_manual_token_auth_is_not_accepted(self):
+        with patch("goopdl.auth._direct_auth") as direct:
+            with self.assertRaises(wizard.SetupError) as caught:
+                play.authenticate({"playAuth": "token", "playEmail": "test@example.org", "playToken": "fake-aas"})
+            self.assertEqual(caught.exception.code, "invalid_request")
+            direct.assert_not_called()
 
     def test_browser_token_is_used_in_memory(self):
         with patch("goopdl.browser_oauth.capture_oauth_credentials", return_value=("test@example.org", "oauth2_4/test")), \
@@ -90,6 +88,7 @@ class PlayDownloadTests(unittest.TestCase):
             play.authenticate({"playAuth": "browser"})
             exchange.assert_called_once_with("test@example.org", "oauth2_4/test")
             self.assertEqual(direct.call_args.args[1], "fake-aas")
+            self.assertEqual(direct.call_args.kwargs["arch"], "arm64")
 
     def test_wrong_package_stops_before_purchase_or_download(self):
         with patch.object(play, "authenticate", return_value={}), \

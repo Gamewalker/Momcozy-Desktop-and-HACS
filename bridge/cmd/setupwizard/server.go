@@ -14,6 +14,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -40,6 +42,7 @@ type server struct {
 	appMode, bridgeRunning         bool
 	parent                         context.Context
 	bridgeCancel                   context.CancelFunc
+	oauthProxy                     http.Handler
 	out                            io.Writer
 }
 
@@ -99,7 +102,7 @@ func run(parent context.Context, helper, dataDir string, noBrowser bool, out io.
 	ctx, cancel := context.WithTimeout(parent, 30*time.Minute)
 	defer cancel()
 	s := &server{token: hex.EncodeToString(nonce), origin: "http://" + listener.Addr().String(), helper: helper, dataDir: dataDir, cancel: cancel}
-	httpServer := &http.Server{Handler: s, BaseContext: func(net.Listener) context.Context { return ctx }, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, IdleTimeout: 30 * time.Second}
+	httpServer := &http.Server{Handler: s, BaseContext: func(net.Listener) context.Context { return ctx }, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 20 * time.Minute, IdleTimeout: 30 * time.Second}
 	done := make(chan error, 1)
 	go func() { done <- httpServer.Serve(listener) }()
 	url := s.origin + "/" + s.token + "/"
@@ -140,11 +143,6 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Referrer-Policy", "no-referrer")
-	frameAncestors := "'none'"
-	if s.appMode {
-		frameAncestors = "'self'"
-	}
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors "+frameAncestors+"; form-action 'none'")
 	if s.appMode {
 		remote, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err != nil || remote != "172.30.32.2" {
@@ -152,6 +150,19 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if s.appMode && strings.HasPrefix(r.URL.Path, "/oauth-browser/") {
+		if r.Method != http.MethodGet || s.oauthProxy == nil {
+			http.Error(w, "OAuth browser unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		s.oauthProxy.ServeHTTP(w, r)
+		return
+	}
+	frameAncestors := "'none'"
+	if s.appMode {
+		frameAncestors = "'self'"
+	}
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; img-src 'self'; frame-src 'self'; base-uri 'none'; frame-ancestors "+frameAncestors+"; form-action 'none'")
 	if !s.appMode && r.Host != strings.TrimPrefix(s.origin, "http://") {
 		http.Error(w, "Invalid host", http.StatusForbidden)
 		return
@@ -169,7 +180,9 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_ = t.Execute(w, pageData{Token: s.token, DataDir: s.dataDir, AppMode: s.appMode, Configured: configured})
 		return
 	}
-	if r.URL.Path != base+"api" {
+	isAPI := r.URL.Path == base+"api"
+	isUpload := r.URL.Path == base+"upload"
+	if !isAPI && !isUpload {
 		http.NotFound(w, r)
 		return
 	}
@@ -177,7 +190,12 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "POST required", 405)
 		return
 	}
-	if (!s.appMode && r.Header.Get("Origin") != s.origin) || r.Header.Get("X-Setup-Token") != s.token || !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+	if (!s.appMode && r.Header.Get("Origin") != s.origin) || r.Header.Get("X-Setup-Token") != s.token {
+		http.Error(w, "Invalid setup request", 403)
+		return
+	}
+	contentType := r.Header.Get("Content-Type")
+	if (isAPI && !strings.HasPrefix(contentType, "application/json")) || (isUpload && !strings.HasPrefix(contentType, "multipart/form-data")) {
 		http.Error(w, "Invalid setup request", 403)
 		return
 	}
@@ -186,6 +204,10 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer s.busy.Unlock()
+	if isUpload {
+		s.handleAPKUpload(w, r)
+		return
+	}
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var input map[string]any
 	if json.NewDecoder(r.Body).Decode(&input) != nil || input == nil {
@@ -247,31 +269,123 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else if dir, ok := input["dataDir"].(string); !ok || strings.TrimSpace(dir) == "" {
 		input["dataDir"] = s.dataDir
 	}
-	if command == "installAdb" {
-		writeJSON(w, installAdb(r.Context(), input["dataDir"].(string)))
-		return
-	}
 	switch command {
-	case "discover", "prepareAndroid", "prepareApks", "preparePlay", "prepareCached", "importSigning", "importConfig", "configure":
+	case "preparePlay", "configure":
 	default:
 		http.Error(w, "Unknown action", 400)
 		return
 	}
-	if command == "discover" || command == "prepareAndroid" {
-		if path, _ := input["adbPath"].(string); path == "" {
-			input["adbPath"] = findAdb(input["dataDir"].(string))
-		}
-	}
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Minute)
 	defer cancel()
 	result := invokeHelper(ctx, s.helper, input)
-	if ok, _ := result["ok"].(bool); ok && (command == "configure" || command == "importConfig") {
+	if ok, _ := result["ok"].(bool); ok && command == "configure" {
 		s.state.Lock()
 		s.readyDir, _ = result["dataDir"].(string)
 		s.readyMode, _ = input["targetMode"].(string)
 		s.state.Unlock()
 	}
 	writeJSON(w, result)
+}
+
+func newOAuthBrowserProxy() http.Handler {
+	target := &url.URL{Scheme: "http", Host: "127.0.0.1:6080"}
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	director := proxy.Director
+	proxy.Director = func(r *http.Request) {
+		director(r)
+		r.URL.Path = strings.TrimPrefix(r.URL.Path, "/oauth-browser")
+		if r.URL.Path == "" {
+			r.URL.Path = "/"
+		}
+		r.Host = target.Host
+	}
+	proxy.ErrorHandler = func(w http.ResponseWriter, _ *http.Request, _ error) {
+		http.Error(w, "OAuth browser unavailable", http.StatusServiceUnavailable)
+	}
+	return proxy
+}
+
+const maxAPKUploadBytes int64 = 1024 * 1024 * 1024
+
+func (s *server) handleAPKUpload(w http.ResponseWriter, r *http.Request) {
+	fail := func(code, message string) {
+		writeJSON(w, map[string]any{"ok": false, "error": code, "message": message})
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, maxAPKUploadBytes)
+	reader, err := r.MultipartReader()
+	if err != nil {
+		fail("apk_upload", "The APK upload could not be read.")
+		return
+	}
+	uploadDir, err := os.MkdirTemp("", "momcozy-apk-upload-")
+	if err != nil {
+		fail("apk_upload", "The APK upload could not be stored temporarily.")
+		return
+	}
+	defer os.RemoveAll(uploadDir)
+	_ = os.Chmod(uploadDir, 0o700)
+
+	input := map[string]any{"command": "prepareApks", "allowFallback": false}
+	uploaded := map[string]string{}
+	for {
+		part, nextErr := reader.NextPart()
+		if errors.Is(nextErr, io.EOF) {
+			break
+		}
+		if nextErr != nil {
+			fail("apk_upload", "The APK upload was interrupted.")
+			return
+		}
+		name := part.FormName()
+		if (name == "baseApk" || name == "arm64Apk") && part.FileName() != "" {
+			if _, exists := uploaded[name]; exists {
+				part.Close()
+				fail("apk_upload", "Each APK may only be uploaded once.")
+				return
+			}
+			path := filepath.Join(uploadDir, name+".apk")
+			file, createErr := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+			if createErr != nil {
+				part.Close()
+				fail("apk_upload", "The APK upload could not be stored temporarily.")
+				return
+			}
+			written, copyErr := io.Copy(file, part)
+			closeErr := file.Close()
+			part.Close()
+			if copyErr != nil || closeErr != nil || written == 0 {
+				fail("apk_upload", "Both APK files must be complete and non-empty.")
+				return
+			}
+			uploaded[name] = path
+			continue
+		}
+		value, readErr := io.ReadAll(io.LimitReader(part, 4097))
+		part.Close()
+		if readErr != nil || len(value) > 4096 {
+			fail("invalid_request", "An upload field is invalid.")
+			return
+		}
+		if name == "dataDir" {
+			input[name] = strings.TrimSpace(string(value))
+		}
+	}
+	if uploaded["baseApk"] == "" || uploaded["arm64Apk"] == "" {
+		fail("apk_missing", "Select both the base APK and the ARM64 APK.")
+		return
+	}
+	dataDir, _ := input["dataDir"].(string)
+	if s.appMode || dataDir == "" {
+		dataDir = s.dataDir
+	}
+	input["dataDir"] = dataDir
+	input["appCacheDir"] = filepath.Join(dataDir, "app-cache")
+	input["baseApk"] = uploaded["baseApk"]
+	input["arm64Apk"] = uploaded["arm64Apk"]
+
+	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Minute)
+	defer cancel()
+	writeJSON(w, invokeHelper(ctx, s.helper, input))
 }
 
 func (s *server) startBridge() error {

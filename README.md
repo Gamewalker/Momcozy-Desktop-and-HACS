@@ -12,11 +12,11 @@ You need a BM04 already paired in the Momcozy app, your Momcozy DE/EU login, a G
 
 1. Download the package for your computer and extract the entire archive.
 2. **Windows:** double-click `momcozy-desktop.exe`. **Linux/macOS:** run `./momcozy-desktop` in the extracted folder.
-3. In the setup assistant, select **Von Google Play herunterladen · ohne Android-Gerät**. Click **App vorbereiten** and sign in to Google.
+3. In the setup assistant, select **Über Google Play anmelden und laden**. Click **App vorbereiten** and sign in to Google.
 4. Enter your Momcozy login. Choose **Auf diesem Desktop mit VLC**, then **Kameras einrichten**.
 5. Click **Kameras jetzt starten**. Keep the program window open during playback.
 
-Use **Originalton beibehalten** for desktop sound. The assistant saves a working app version locally for automatic fallback.
+Use **Kamera-Originalton · für VLC** for desktop sound. Home Assistant uses AAC because it does not support the camera's original audio codec.
 
 ## Home Assistant
 

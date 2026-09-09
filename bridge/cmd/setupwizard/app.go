@@ -68,7 +68,7 @@ func runApp(parent context.Context, helper, dataDir, listen string, out io.Write
 	s := &server{
 		token: hex.EncodeToString(nonce), origin: "http://" + listener.Addr().String(),
 		helper: helper, dataDir: dataDir, appMode: true, parent: ctx, out: out,
-		cancel: stop,
+		cancel: stop, oauthProxy: newOAuthBrowserProxy(),
 	}
 	if commandForDir(dataDir) == "desktop" {
 		s.readyDir = dataDir

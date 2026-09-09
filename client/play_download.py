@@ -77,20 +77,15 @@ def download_file(item, destination, cookies=()):
 def authenticate(request):
     from goopdl.auth import _direct_auth
     mode = request.get("playAuth", "browser")
-    if mode == "browser":
-        from goopdl.browser_oauth import capture_oauth_credentials, BrowserOAuthError
-        from goopdl.aastoken import fetch_aas_token
-        try:
-            email, oauth = capture_oauth_credentials(timeout=240)
-        except BrowserOAuthError:
-            raise SetupError("play_browser", "Google sign-in did not finish. Install Chrome/Edge/Chromium/Brave or use your own AAS token.") from None
-        token = fetch_aas_token(email, oauth)
-    elif mode == "token":
-        email, token = request.get("playEmail", "").strip(), request.get("playToken", "").strip()
-        if "@" not in email or not token:
-            raise SetupError("play_credentials", "Enter the Google account email and AAS token.")
-    else:
+    if mode != "browser":
         raise SetupError("invalid_request", "Unknown Google Play authentication method.")
+    from goopdl.browser_oauth import capture_oauth_credentials, BrowserOAuthError
+    from goopdl.aastoken import fetch_aas_token
+    try:
+        email, oauth = capture_oauth_credentials(timeout=240)
+    except BrowserOAuthError:
+        raise SetupError("play_browser", "Google sign-in did not finish. Install or restart the isolated browser and try again.") from None
+    token = fetch_aas_token(email, oauth)
     # Explicit arguments avoid silently using inherited GOOPDL_* credentials.
     result = _direct_auth(email, token, arch="arm64", country="DE", proxy=None, profile_name=None)
     if not result:

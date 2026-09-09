@@ -14,10 +14,10 @@ BM04-Kameras mit Bild und Ton auf Windows, Linux, macOS oder in Home Assistant a
 ## Einrichten
 
 1. **Windows:** `momcozy-desktop.exe` doppelklicken. **Linux/macOS:** im entpackten Ordner `./momcozy-desktop` ausführen.
-2. **Von Google Play herunterladen · ohne Android-Gerät** wählen.
+2. **Über Google Play anmelden und laden** wählen.
 3. **App vorbereiten** anklicken und im Browser bei Google anmelden.
 4. Momcozy-E-Mail-Adresse und Passwort eingeben.
-5. **Auf diesem Desktop mit VLC** und **Originalton beibehalten** wählen.
+5. **Auf diesem Desktop mit VLC** und **Kamera-Originalton · für VLC** wählen.
 6. **Kameras einrichten → Kameras jetzt starten** anklicken.
 
 Archiv- und Fallback-Einstellungen beibehalten. Eine funktionierende App-Version wird lokal gespeichert und bei Bedarf automatisch wiederverwendet.

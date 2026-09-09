@@ -149,6 +149,27 @@ class SetupWizardTests(unittest.TestCase):
             self.assertEqual(result[0]["username"], "homeassistant")
             self.assertEqual(result[0]["password"], saved["rtsp-password"])
 
+    def test_addon_options_accept_home_assistant_dns_name(self):
+        with tempfile.TemporaryDirectory() as temp:
+            stage = Path(temp)
+            config = stage / "bridge-1.private.json"
+            config.write_text('{"camera-name":"bm04_1","device-id":"test"}')
+            result = wizard.apply_options(
+                {"targetMode": "ha", "bridgeHost": "HomeAssistant.local.", "addonMode": True,
+                 "audioFormat": "aac", "ffmpegPath": sys.executable},
+                stage, [config.name])
+            saved = json.loads(config.read_text())
+            self.assertEqual(saved["listen-host"], "0.0.0.0")
+            self.assertEqual(result[0]["host"], "homeassistant.local")
+
+            config.write_text('{"camera-name":"bm04_1","device-id":"test"}')
+            for invalid_host in ("localhost", "0.0.0.0", "127.0.0.1"):
+                with self.subTest(invalid_host=invalid_host), self.assertRaises(wizard.SetupError):
+                    wizard.apply_options(
+                        {"targetMode": "ha", "bridgeHost": invalid_host, "addonMode": True,
+                         "audioFormat": "aac", "ffmpegPath": sys.executable},
+                        stage, [config.name])
+
     def test_addon_options_reject_more_than_exposed_ports(self):
         with tempfile.TemporaryDirectory() as temp:
             stage = Path(temp)

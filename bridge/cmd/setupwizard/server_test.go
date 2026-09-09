@@ -2,8 +2,10 @@ package setupwizard
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/json"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -61,6 +63,92 @@ func TestPageEscapesPrivateDirectory(t *testing.T) {
 	s.ServeHTTP(w, r)
 	if w.Code != 200 || strings.Contains(w.Body.String(), "<script>bad()") || !strings.Contains(w.Body.String(), `const token="abc"`) {
 		t.Fatal("template context escaping failed")
+	}
+}
+
+func TestPageOffersOnlyGooglePlayAndAPKUpload(t *testing.T) {
+	s := &server{token: "abc", origin: "http://127.0.0.1:12345", dataDir: t.TempDir()}
+	r := httptest.NewRequest(http.MethodGet, s.origin+"/abc/", nil)
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	body := w.Body.String()
+	for _, removed := range []string{`value="android"`, `value="cached"`, `value="signing"`, `value="config"`} {
+		if strings.Contains(body, removed) {
+			t.Fatalf("obsolete setup method remains in page: %s", removed)
+		}
+	}
+	for _, removed := range []string{`id="playEmail"`, `id="playToken"`, "AAS-Token"} {
+		if strings.Contains(body, removed) {
+			t.Fatalf("manual token login remains in page: %s", removed)
+		}
+	}
+	for _, required := range []string{`value="play"`, `value="apks"`, `id="oauth-browser"`, `id="baseApk" type="file"`, `id="arm64Apk" type="file"`} {
+		if !strings.Contains(body, required) {
+			t.Fatalf("required setup control missing: %s", required)
+		}
+	}
+}
+
+func TestOAuthBrowserRequiresHomeAssistantIngress(t *testing.T) {
+	proxied := false
+	s := &server{
+		token: "secret", appMode: true, dataDir: t.TempDir(),
+		oauthProxy: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			proxied = true
+			_, _ = w.Write([]byte("browser"))
+		}),
+	}
+	r := httptest.NewRequest(http.MethodGet, "http://app/oauth-browser/vnc.html", nil)
+	r.RemoteAddr = "172.30.32.2:1234"
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	if w.Code != http.StatusOK || w.Body.String() != "browser" || !proxied {
+		t.Fatalf("authenticated Ingress did not reach OAuth browser: %d %q", w.Code, w.Body.String())
+	}
+
+	proxied = false
+	r = httptest.NewRequest(http.MethodGet, "http://app/oauth-browser/vnc.html", nil)
+	r.RemoteAddr = "172.30.33.4:1234"
+	w = httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	if w.Code != http.StatusForbidden || proxied {
+		t.Fatalf("non-Ingress request reached OAuth browser: %d", w.Code)
+	}
+}
+
+func TestAPKUploadRequiresBothFiles(t *testing.T) {
+	helperDir := t.TempDir()
+	helper := filepath.Join(helperDir, "helper")
+	if err := os.WriteFile(helper, []byte("#!/bin/sh\nprintf '{\"ok\":true,\"prepared\":true}'\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	s := &server{token: "secret", origin: "http://127.0.0.1:12345", dataDir: t.TempDir(), helper: helper}
+
+	upload := func(includeArm64 bool) *httptest.ResponseRecorder {
+		var body bytes.Buffer
+		form := multipart.NewWriter(&body)
+		_ = form.WriteField("dataDir", s.dataDir)
+		base, _ := form.CreateFormFile("baseApk", "base.apk")
+		_, _ = base.Write([]byte("base fixture"))
+		if includeArm64 {
+			arm64, _ := form.CreateFormFile("arm64Apk", "split_config.arm64_v8a.apk")
+			_, _ = arm64.Write([]byte("arm64 fixture"))
+		}
+		_ = form.Close()
+		r := httptest.NewRequest(http.MethodPost, s.origin+"/secret/upload", &body)
+		r.Header.Set("Origin", s.origin)
+		r.Header.Set("X-Setup-Token", s.token)
+		r.Header.Set("Content-Type", form.FormDataContentType())
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, r)
+		return w
+	}
+
+	if w := upload(false); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"error":"apk_missing"`) {
+		t.Fatalf("missing ARM64 APK was not rejected: %d %s", w.Code, w.Body.String())
+	}
+	if w := upload(true); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"prepared":true`) {
+		t.Fatalf("complete APK upload failed: %d %s", w.Code, w.Body.String())
 	}
 }
 func TestAppModeRequiresIngressAndToken(t *testing.T) {

@@ -19,13 +19,13 @@ Install [VLC](https://www.videolan.org/vlc/) and Chrome, Edge, Chromium or Brave
 - **Windows:** double-click `momcozy-desktop.exe`.
 - **Linux/macOS:** open a terminal in the extracted folder and run `./momcozy-desktop`.
 
-In the [setup assistant](SETUP.md), select **Von Google Play herunterladen · ohne Android-Gerät**, sign in to Google, then enter your Momcozy login. Choose desktop playback and click **Kameras einrichten → Kameras jetzt starten**.
+In the [setup assistant](SETUP.md), select **Über Google Play anmelden und laden**, sign in to Google, then enter your Momcozy login. Choose desktop playback and click **Kameras einrichten → Kameras jetzt starten**.
 
 On macOS, allow the downloaded app under **System Settings → Privacy & Security** if prompted.
 
 ## Daily use
 
-Start the executable again to open your cameras in VLC. Use **Originalton beibehalten** for sound. Keep the program window open; **Ctrl+C** stops the bridge.
+Start the executable again to open your cameras in VLC. Use **Kamera-Originalton · für VLC** for sound. Keep the program window open; **Ctrl+C** stops the bridge.
 
 Default configuration folder: `%USERPROFILE%\.momcozy-desktop` on Windows; `~/.momcozy-desktop` on Linux/macOS.
 
