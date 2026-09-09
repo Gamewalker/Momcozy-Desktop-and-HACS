@@ -7,7 +7,7 @@ mkdir -p /data/momcozy
 export DISPLAY=:99
 export GOOPDL_BROWSER=/usr/local/bin/momcozy-oauth-browser
 
-Xvfb :99 -screen 0 1280x800x24 -nolisten tcp >/dev/null 2>&1 &
+Xvfb :99 -screen 0 1024x640x16 -nolisten tcp >/dev/null 2>&1 &
 xvfb_pid=$!
 x11vnc -loop -display :99 -forever -shared -nopw -localhost -rfbport 5900 >/dev/null 2>&1 &
 vnc_pid=$!

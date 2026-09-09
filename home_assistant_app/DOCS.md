@@ -17,7 +17,7 @@ The default RTSP ports are `19554` through `19563`. If you change an external po
 The setup has two app sources:
 
 - **Google Play:** click **App vorbereiten** and sign in directly to Google in the isolated browser shown inside the app. The temporary browser profile, cookies and internally exchanged credentials are discarded after the download.
-- **Own APK files:** select and upload both the base APK and the matching ARM64 split APK. The files are validated locally and removed from the temporary upload afterward.
+- **Own APK files:** select and upload both the base APK and the matching ARM64 split APK. The files are streamed through Home Assistant, validated locally and removed from the temporary upload afterward.
 
 The Home Assistant IP or DNS name is prefilled from the address used to open the app. It remains editable, which is useful when Home Assistant was opened through an external URL.
 
