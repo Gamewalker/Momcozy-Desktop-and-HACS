@@ -77,19 +77,27 @@ def download_file(item, destination, cookies=()):
 
 
 def authenticate(request):
-    from goopdl.auth import _direct_auth
     mode = request.get("playAuth", "browser")
     if mode != "browser":
         raise SetupError("invalid_request", "Unknown Google Play authentication method.")
     from goopdl.browser_oauth import capture_oauth_credentials, BrowserOAuthError
-    from goopdl.aastoken import fetch_aas_token
+    from goopdl.aastoken import fetch_aas_token, AASTokenError
     try:
         email, oauth = capture_oauth_credentials(timeout=240)
     except BrowserOAuthError:
         raise SetupError("play_browser", "Google sign-in did not finish. Install or restart the isolated browser and try again.") from None
-    token = fetch_aas_token(email, oauth)
+    try:
+        token = fetch_aas_token(email, oauth)
+    except AASTokenError:
+        raise SetupError("play_auth", "Google rejected the sign-in or the session expired. Sign in again.") from None
+    # Chromium has been stopped by capture_oauth_credentials at this point.
+    # Only now load the heavier Play authentication stack.
+    from goopdl.auth import _direct_auth, DirectAuthError
     # Explicit arguments avoid silently using inherited GOOPDL_* credentials.
-    result = _direct_auth(email, token, arch="arm64", country="DE", proxy=None, profile_name=None)
+    try:
+        result = _direct_auth(email, token, arch="arm64", country="DE", proxy=None, profile_name=None)
+    except DirectAuthError:
+        raise SetupError("play_auth", "Google rejected the sign-in or the session expired. Sign in again.") from None
     if not result:
         raise SetupError("play_auth", "Google Play authentication failed.")
     return result
@@ -97,14 +105,13 @@ def authenticate(request):
 
 def acquire(request, stage):
     """Return locally validated base/ARM64 inputs; never return account material."""
+    # Authenticate before importing the Play API and Androguard. During the
+    # browser step Chromium must be the only memory-heavy process.
+    auth = authenticate(request)
     from goopdl import api
-    from goopdl.aastoken import AASTokenError
-    from goopdl.auth import DirectAuthError
     from loguru import logger
-    from androguard.core.apk import APK
     logger.remove()
     try:
-        auth = authenticate(request)
         details = api.get_details(PACKAGE, auth, country="DE")
         if details.package != PACKAGE:
             raise SetupError("play_version", "Google Play returned a different package.")
@@ -117,6 +124,7 @@ def acquire(request, stage):
         # metadata can report a different value for its version field.
         base = stage / "play-base.apk"
         download_file(delivery, base, delivery.cookies)
+        from androguard.core.apk import APK
         parsed = APK(str(base))
         if (parsed.get_package() != PACKAGE or not parsed.get_androidversion_name()
                 or str(parsed.get_androidversion_code()) != str(requested)):
@@ -142,7 +150,7 @@ def acquire(request, stage):
         return base, arm
     except SetupError:
         raise
-    except (AASTokenError, DirectAuthError, api.AuthExpiredError):
+    except api.AuthExpiredError:
         raise SetupError("play_auth", "Google rejected the sign-in or the session expired. Sign in again.") from None
     except api.RateLimitedError:
         raise SetupError("play_rate_limit", "Google Play is rate limiting this request. Try again later.") from None

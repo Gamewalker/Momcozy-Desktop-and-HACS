@@ -64,6 +64,11 @@ def run_script(name, stage, *args):
                             timeout=300, creationflags=0x08000000 if os.name == "nt" else 0)
     if result.returncode:
         if name == "prepare_apk":
+            if result.returncode in {-9, 137}:
+                raise SetupError(
+                    "apk_memory",
+                    "Für die APK-Verarbeitung war nicht genügend Arbeitsspeicher verfügbar. Erhöhe das Speicherlimit der Home-Assistant-App und versuche es erneut.",
+                )
             stderr = result.stderr.decode("utf-8", errors="replace") if isinstance(result.stderr, bytes) else str(result.stderr or "")
             for internal, public in PREPARE_APK_ERRORS:
                 if internal in stderr:

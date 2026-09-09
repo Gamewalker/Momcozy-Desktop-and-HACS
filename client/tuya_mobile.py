@@ -8,18 +8,12 @@ WHITELIST=set('a v lat lon lang deviceId appVersion ttid isH5 h5Token os clientI
 def parameters():
     cache=ROOT/'signing.private.json'
     if cache.exists(): return json.loads(cache.read_text())
-    from loguru import logger
-    logger.remove()
-    from androguard.core.apk import APK
-    apk=APK(str(ROOT/'apk/base.apk'))
-    cert=apk.get_certificates()[0].dump()
-    cert_hash=':'.join(f'{b:02X}' for b in hashlib.sha256(cert).digest())
     meta=json.loads((ROOT/'apk-parameters.private.json').read_text())
     embedded=bytes.fromhex(json.loads((ROOT/'embedded-keys.private.json').read_text())[0]).decode()
     result={'appKey':meta['THING_SMART_APPKEY'],
-            'signingKey':'_'.join([apk.get_package(),cert_hash,embedded,meta['THING_SMART_SECRET']]),
-            'deviceId':uuid.uuid4().hex,'appVersion':apk.get_androidversion_name(),
-            'appVersionCode':apk.get_androidversion_code()}
+            'signingKey':'_'.join([meta['package'],meta['certificateHash'],embedded,meta['THING_SMART_SECRET']]),
+            'deviceId':uuid.uuid4().hex,'appVersion':meta['appVersion'],
+            'appVersionCode':meta['appVersionCode']}
     cache.write_text(json.dumps(result),encoding='utf-8')
     return result
 

@@ -51,6 +51,14 @@ class SetupWizardTests(unittest.TestCase):
         self.assertNotIn("fixture-secret", caught.exception.message)
         self.assertNotIn("/private/path", caught.exception.message)
 
+    def test_prepare_apk_oom_is_not_reported_as_a_damaged_apk(self):
+        failed = subprocess.CompletedProcess(["prepare_apk"], 137, b"", b"")
+        with patch.object(wizard.subprocess, "run", return_value=failed):
+            with self.assertRaises(wizard.SetupError) as caught:
+                wizard.run_script("prepare_apk", Path("/private/stage"), "base.apk", "arm64.apk")
+        self.assertEqual(caught.exception.code, "apk_memory")
+        self.assertIn("Arbeitsspeicher", caught.exception.message)
+
     def test_diagnostic_self_test_never_reads_stdin_and_keeps_traceback(self):
         with patch.object(sys, "argv", ["helper", "--self-test"]), patch.object(wizard, "handle", side_effect=RuntimeError("fixture failure")) as handle:
             with self.assertRaisesRegex(RuntimeError, "fixture failure"):
