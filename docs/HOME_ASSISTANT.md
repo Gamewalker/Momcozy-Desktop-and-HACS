@@ -8,11 +8,21 @@ Momcozy setup requires an email address and a password set for your Momcozy acco
 
 ## 1. Install the Home Assistant app
 
-1. Open **Settings → Apps → App store → Repositories**.
-2. Add `https://github.com/Gamewalker/Momcozy-Desktop-and-HACS`.
-3. Install **Momcozy Bridge**, enable automatic startup and start it.
-4. Open the app web UI and complete the camera setup. FFmpeg is included.
-5. Check the automatically detected Home Assistant IP or DNS name, adjust it if necessary, then click **Kameras einrichten → Bridge jetzt starten**.
+1. Add the Momcozy app repository:
+
+   [![Open your Home Assistant instance and show the add app repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FGamewalker%2FMomcozy-Desktop-and-HACS)
+
+2. Open **Momcozy Bridge**, install it, enable automatic startup and start it:
+
+   [![Open your Home Assistant instance and show the dashboard of an app.](https://my.home-assistant.io/badges/supervisor_addon.svg)](https://my.home-assistant.io/redirect/supervisor_addon/?addon=4bb1db59_momcozy_bridge&repository_url=https%3A%2F%2Fgithub.com%2FGamewalker%2FMomcozy-Desktop-and-HACS)
+
+3. Open the app web UI and complete the camera setup. FFmpeg is included:
+
+   [![Open your Home Assistant instance and open the ingress URL of an app.](https://my.home-assistant.io/badges/supervisor_ingress.svg)](https://my.home-assistant.io/redirect/supervisor_ingress/?addon=4bb1db59_momcozy_bridge)
+
+4. Check the automatically detected Home Assistant IP or DNS name, adjust it if necessary, then click **Kameras einrichten → Bridge jetzt starten**.
+
+If a direct link does not work, open **Settings → Apps → App store → Repositories**, add `https://github.com/Gamewalker/Momcozy-Desktop-and-HACS`, then install and open **Momcozy Bridge** from the app store.
 
 The result lists each camera's host, port, stream path and generated RTSP credentials. These local credentials are shown through authenticated Home Assistant Ingress; Momcozy/Tuya cloud secrets are not displayed.
 
@@ -24,12 +34,15 @@ The camera's original audio codec is not supported by Home Assistant. AAC is the
 
 Open the Momcozy repository directly in HACS:
 
-[![Open your Home Assistant instance and open the Momcozy repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Gamewalker&repository=Momcozy-Desktop-and-HACS&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Gamewalker&repository=Momcozy-Desktop-and-HACS&category=integration)
 
 Alternatively, open **HACS → ⋮ → Custom repositories** and add `https://github.com/Gamewalker/Momcozy-Desktop-and-HACS` with category **Integration**.
 
 1. Download **Momcozy Desktop and HACS**, then restart Home Assistant.
-2. Open **Settings → Devices & services → Add integration → Momcozy Bridge**.
+2. Start the Momcozy integration setup:
+
+   [![Open your Home Assistant instance and start setting up a new integration.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=momcozy)
+
 3. Enter the connection details from the bridge setup:
 
 | Field | Value |
@@ -40,7 +53,7 @@ Alternatively, open **HACS → ⋮ → Custom repositories** and add `https://gi
 | Stream path | This camera's path, e.g. `bm04_1` |
 | RTSP username / password | Values shown for this camera in the app web UI |
 
-Repeat **Add integration** for each camera. Open the camera entity and unmute the player.
+Repeat the integration link for each camera. Alternatively, open **Settings → Devices & services → Add integration → Momcozy Bridge**. Open the camera entity and unmute the player.
 
 The app restarts the bridge automatically after a Home Assistant reboot. Reopen its web UI at any time to review the local RTSP connection details. The default exposed ports are `19554` through `19563`; changed external ports must also be changed in the integration entry.
 
