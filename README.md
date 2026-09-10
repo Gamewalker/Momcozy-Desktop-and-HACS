@@ -22,6 +22,8 @@ Use **Kamera-Originalton · für VLC** for desktop sound. Home Assistant uses AA
 
 Install the **Momcozy Bridge** app from this repository, complete setup in its Home Assistant web UI and install the camera integration through HACS. The bridge then runs directly on the Home Assistant system; no additional always-on computer is needed. Follow the [Home Assistant guide](docs/HOME_ASSISTANT.md).
 
+[![Open your Home Assistant instance and open the Momcozy repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Gamewalker&repository=Momcozy-Desktop-and-HACS&category=integration)
+
 An internet connection is required for camera login and connection setup.
 
 [Setup details](docs/SETUP.md) · [Start and update](docs/BINARIES.md) · [Archive](docs/archive/README.md) · [Contributing](CONTRIBUTING.md) · [Licenses](NOTICE.md)

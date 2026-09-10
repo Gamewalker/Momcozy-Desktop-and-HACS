@@ -22,11 +22,15 @@ The camera's original audio codec is not supported by Home Assistant. AAC is the
 
 ## 2. Install through HACS
 
-1. Open **HACS → ⋮ → Custom repositories**.
-2. Add `https://github.com/Gamewalker/Momcozy-Desktop-and-HACS`, category **Integration**.
-3. Download **Momcozy Desktop and HACS**, then restart Home Assistant.
-4. Open **Settings → Devices & services → Add integration → Momcozy Bridge**.
-5. Enter the connection details from the bridge setup:
+Open the Momcozy repository directly in HACS:
+
+[![Open your Home Assistant instance and open the Momcozy repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Gamewalker&repository=Momcozy-Desktop-and-HACS&category=integration)
+
+Alternatively, open **HACS → ⋮ → Custom repositories** and add `https://github.com/Gamewalker/Momcozy-Desktop-and-HACS` with category **Integration**.
+
+1. Download **Momcozy Desktop and HACS**, then restart Home Assistant.
+2. Open **Settings → Devices & services → Add integration → Momcozy Bridge**.
+3. Enter the connection details from the bridge setup:
 
 | Field | Value |
 | --- | --- |
