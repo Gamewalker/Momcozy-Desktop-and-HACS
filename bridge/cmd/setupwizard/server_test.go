@@ -264,6 +264,80 @@ func TestCameraStatusReturnsOnlyLocalRTSPConnection(t *testing.T) {
 		t.Fatalf("unexpected status payload: %s", encoded)
 	}
 }
+
+func TestRegenerateRTSPCredentialsRotatesOnlyIntegrationAccess(t *testing.T) {
+	dir := t.TempDir()
+	manifest := []byte(`["bridge-1.private.json","bridge-2.private.json"]`)
+	if err := os.WriteFile(filepath.Join(dir, "cameras.private.json"), manifest, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"bridge-1.private.json", "bridge-2.private.json"} {
+		config := map[string]any{
+			"camera-name":   "camera",
+			"device-id":     "device",
+			"port":          "19554",
+			"sid":           "cloud-value",
+			"rtsp-user":     "old-user",
+			"rtsp-password": "old-password",
+		}
+		encoded, _ := json.Marshal(config)
+		if err := os.WriteFile(filepath.Join(dir, name), encoded, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	cameras, err := regenerateRTSPCredentials(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cameras) != 2 {
+		t.Fatalf("got %d cameras", len(cameras))
+	}
+	passwords := map[string]bool{}
+	for _, name := range []string{"bridge-1.private.json", "bridge-2.private.json"} {
+		encoded, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var config map[string]any
+		if err := json.Unmarshal(encoded, &config); err != nil {
+			t.Fatal(err)
+		}
+		if config["sid"] != "cloud-value" || config["rtsp-user"] != "homeassistant" {
+			t.Fatalf("unrelated configuration changed: %#v", config)
+		}
+		password, _ := config["rtsp-password"].(string)
+		if len(password) < 16 || password == "old-password" {
+			t.Fatalf("password was not safely rotated: %q", password)
+		}
+		passwords[password] = true
+	}
+	if len(passwords) != 2 {
+		t.Fatal("each stream must receive independent credentials")
+	}
+}
+
+func TestConfiguredPageMatchesIntegrationFieldNamesAndOffersMaintenance(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "cameras.private.json"), []byte(`[]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := &server{token: "abc", origin: "http://127.0.0.1:12345", dataDir: dir}
+	r := httptest.NewRequest(http.MethodGet, s.origin+"/abc/", nil)
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	body := w.Body.String()
+	for _, required := range []string{
+		"Name", "Bridge-Host", "RTSP-Port", "Stream-Pfad",
+		"RTSP-Benutzername", "RTSP-Passwort",
+		"Wizard neu starten", "Zugangsdaten neu generieren",
+		"regenerateCredentials", "replaceExisting",
+	} {
+		if !strings.Contains(body, required) {
+			t.Fatalf("configured page is missing %q", required)
+		}
+	}
+}
 func TestHelperFailureDoesNotExposePath(t *testing.T) {
 	result := invokeHelper(context.Background(), filepath.Join(t.TempDir(), "private-secret.exe"), nil)
 	data, _ := json.Marshal(result)

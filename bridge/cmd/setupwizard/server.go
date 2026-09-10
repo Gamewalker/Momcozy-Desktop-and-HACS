@@ -44,6 +44,7 @@ type server struct {
 	appMode, bridgeRunning         bool
 	parent                         context.Context
 	bridgeCancel                   context.CancelFunc
+	bridgeDone                     chan struct{}
 	oauthProxy                     http.Handler
 	out                            io.Writer
 }
@@ -241,6 +242,24 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"ok": true, "running": running, "cameras": cameras})
 		return
 	}
+	if command == "regenerateCredentials" && s.appMode {
+		if err := s.stopBridgeAndWait(ctx); err != nil {
+			writeJSON(w, map[string]any{"ok": false, "error": "bridge_stop", "message": "Die laufende Bridge konnte nicht rechtzeitig beendet werden."})
+			return
+		}
+		cameras, err := regenerateRTSPCredentials(s.dataDir)
+		if err != nil {
+			_ = s.startBridge()
+			writeJSON(w, map[string]any{"ok": false, "error": "credentials_update", "message": "Die RTSP-Zugangsdaten konnten nicht neu erzeugt werden."})
+			return
+		}
+		if err := s.startBridge(); err != nil {
+			writeJSON(w, map[string]any{"ok": false, "error": "bridge_start", "message": "Die Zugangsdaten wurden erneuert, aber die Bridge konnte nicht gestartet werden."})
+			return
+		}
+		writeJSON(w, map[string]any{"ok": true, "running": true, "cameras": cameras})
+		return
+	}
 	if command == "close" {
 		if s.appMode {
 			writeJSON(w, map[string]any{"ok": false, "message": "Stop the app from Home Assistant."})
@@ -289,12 +308,20 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unknown action", 400)
 		return
 	}
+	s.state.Lock()
+	hadConfiguration := s.readyDir != ""
+	s.state.Unlock()
 	result := invokeHelper(ctx, s.helper, input)
 	if ok, _ := result["ok"].(bool); ok && command == "configure" {
 		s.state.Lock()
 		s.readyDir, _ = result["dataDir"].(string)
 		s.readyMode, _ = input["targetMode"].(string)
 		s.state.Unlock()
+		if s.appMode && hadConfiguration {
+			if err := s.stopBridgeAndWait(ctx); err == nil {
+				_ = s.startBridge()
+			}
+		}
 	}
 	writeJSON(w, result)
 }
@@ -437,6 +464,8 @@ func (s *server) handleAPKUpload(ctx context.Context, w http.ResponseWriter, r *
 		}
 		if name == "dataDir" {
 			input[name] = strings.TrimSpace(string(value))
+		} else if name == "replaceExisting" {
+			input[name] = strings.TrimSpace(string(value)) == "true"
 		}
 	}
 	if uploaded["baseApk"] == "" || uploaded["arm64Apk"] == "" {
@@ -467,7 +496,9 @@ func (s *server) startBridge() error {
 	}
 	ctx, cancel := context.WithCancel(s.parent)
 	dir := s.readyDir
+	done := make(chan struct{})
 	s.bridgeCancel = cancel
+	s.bridgeDone = done
 	s.bridgeRunning = true
 	s.state.Unlock()
 
@@ -476,10 +507,14 @@ func (s *server) startBridge() error {
 	c.SetOut(s.out)
 	c.SetErr(s.out)
 	go func() {
+		defer close(done)
 		err := c.ExecuteContext(ctx)
 		s.state.Lock()
 		s.bridgeRunning = false
 		s.bridgeCancel = nil
+		if s.bridgeDone == done {
+			s.bridgeDone = nil
+		}
 		s.state.Unlock()
 		if err != nil && ctx.Err() == nil {
 			fmt.Fprintln(s.out, "Home Assistant app bridge:", err)
@@ -497,38 +532,109 @@ func (s *server) stopBridge() {
 	}
 }
 
-func cameraStatus(dir string) ([]map[string]any, error) {
+func (s *server) stopBridgeAndWait(ctx context.Context) error {
+	s.state.Lock()
+	cancel, done := s.bridgeCancel, s.bridgeDone
+	s.state.Unlock()
+	if cancel == nil || done == nil {
+		return nil
+	}
+	cancel()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+type privateCameraConfig struct {
+	name   string
+	config map[string]string
+}
+
+func loadPrivateCameraConfigs(dir string) (string, []privateCameraConfig, error) {
 	root, err := filepath.Abs(dir)
 	if err != nil {
-		return nil, errors.New("invalid private configuration directory")
+		return "", nil, errors.New("invalid private configuration directory")
 	}
 	manifest, err := os.ReadFile(filepath.Join(root, "cameras.private.json"))
 	if err != nil {
-		return nil, errors.New("camera configuration is not ready")
+		return "", nil, errors.New("camera configuration is not ready")
 	}
 	var names []string
 	if json.Unmarshal(manifest, &names) != nil || len(names) == 0 {
-		return nil, errors.New("camera manifest is invalid")
+		return "", nil, errors.New("camera manifest is invalid")
 	}
-	result := make([]map[string]any, 0, len(names))
+	configs := make([]privateCameraConfig, 0, len(names))
 	seen := make(map[string]bool, len(names))
 	for _, name := range names {
 		if filepath.Base(name) != name || !strings.HasPrefix(name, "bridge-") || !strings.HasSuffix(name, ".private.json") || seen[name] {
-			return nil, errors.New("camera manifest is invalid")
+			return "", nil, errors.New("camera manifest is invalid")
 		}
 		seen[name] = true
 		contents, err := os.ReadFile(filepath.Join(root, name))
 		if err != nil {
-			return nil, errors.New("camera configuration is incomplete")
+			return "", nil, errors.New("camera configuration is incomplete")
 		}
 		var config map[string]string
 		if json.Unmarshal(contents, &config) != nil {
-			return nil, errors.New("camera configuration is invalid")
+			return "", nil, errors.New("camera configuration is invalid")
 		}
 		port, err := strconv.Atoi(config["port"])
 		if err != nil || port < 1024 || port > 65535 || config["camera-name"] == "" || config["rtsp-user"] == "" || config["rtsp-password"] == "" {
-			return nil, errors.New("camera configuration is incomplete")
+			return "", nil, errors.New("camera configuration is incomplete")
 		}
+		configs = append(configs, privateCameraConfig{name: name, config: config})
+	}
+	return root, configs, nil
+}
+
+func regenerateRTSPCredentials(dir string) ([]map[string]any, error) {
+	root, configs, err := loadPrivateCameraConfigs(dir)
+	if err != nil {
+		return nil, err
+	}
+	stage, err := os.MkdirTemp(root, ".rtsp-credentials-")
+	if err != nil {
+		return nil, errors.New("cannot stage RTSP credentials")
+	}
+	defer os.RemoveAll(stage)
+	if err := os.Chmod(stage, 0o700); err != nil {
+		return nil, errors.New("cannot protect staged RTSP credentials")
+	}
+	for _, item := range configs {
+		secret := make([]byte, 24)
+		if _, err := rand.Read(secret); err != nil {
+			return nil, errors.New("cannot generate RTSP credentials")
+		}
+		item.config["rtsp-user"] = "homeassistant"
+		item.config["rtsp-password"] = hex.EncodeToString(secret)
+		encoded, err := json.Marshal(item.config)
+		if err != nil {
+			return nil, errors.New("cannot encode RTSP credentials")
+		}
+		if err := os.WriteFile(filepath.Join(stage, item.name), encoded, 0o600); err != nil {
+			return nil, errors.New("cannot stage RTSP credentials")
+		}
+	}
+	for _, item := range configs {
+		if err := os.Rename(filepath.Join(stage, item.name), filepath.Join(root, item.name)); err != nil {
+			return nil, errors.New("cannot publish RTSP credentials")
+		}
+	}
+	return cameraStatus(root)
+}
+
+func cameraStatus(dir string) ([]map[string]any, error) {
+	_, configs, err := loadPrivateCameraConfigs(dir)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]map[string]any, 0, len(configs))
+	for _, item := range configs {
+		config := item.config
+		port, _ := strconv.Atoi(config["port"])
 		result = append(result, map[string]any{
 			"name": config["camera-name"], "path": config["camera-name"], "port": port,
 			"username": config["rtsp-user"], "password": config["rtsp-password"],

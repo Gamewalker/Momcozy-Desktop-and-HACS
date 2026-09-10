@@ -101,6 +101,33 @@ class SetupWizardTests(unittest.TestCase):
             self.assertEqual(caught.exception.code, "existing_configuration")
             self.assertEqual(manifest.read_text(), '["existing"]')
 
+    def test_explicit_reconfiguration_replaces_existing_setup_atomically(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = Path(temp)
+            (data / "cameras.private.json").write_text('["bridge-old.private.json"]')
+            (data / "bridge-old.private.json").write_text('{"camera-name":"old"}')
+            (data / ".setup-signing.private.json").write_text('{}')
+
+            def pipeline(name, stage, *args):
+                if name == "make_bridge_config":
+                    (stage / "cameras.private.json").write_text('["bridge-new.private.json"]')
+                    (stage / "bridge-new.private.json").write_text(
+                        '{"camera-name":"new","device-id":"new-device"}'
+                    )
+
+            with patch.object(wizard, "run_script", side_effect=pipeline):
+                result = wizard.handle({
+                    "command": "configure",
+                    "dataDir": temp,
+                    "replaceExisting": True,
+                    "username": "user",
+                    "password": "secret",
+                })
+
+            self.assertEqual(result["cameras"][0]["name"], "new")
+            self.assertEqual(json.loads((data / "cameras.private.json").read_text()), ["bridge-new.private.json"])
+            self.assertFalse((data / "bridge-old.private.json").exists())
+
     def test_import_rejects_traversal_before_publishing(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

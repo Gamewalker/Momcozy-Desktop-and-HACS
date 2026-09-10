@@ -244,6 +244,11 @@ def refuse_existing_cameras(data):
         raise SetupError("existing_configuration", "This folder already contains cameras. Choose a new setup folder.")
 
 
+def existing_camera_files(data):
+    """Return only top-level private camera files that a confirmed replacement owns."""
+    return {file.name for file in data.glob("bridge-*.private.json") if file.is_file()}
+
+
 def handle(request):
     command = request.get("command")
     if command == "selfTest":
@@ -276,13 +281,15 @@ def handle(request):
         raise SetupError("invalid_request", "Unknown setup command.")
     data = Path(request["dataDir"]).expanduser().resolve()
     private_dir(data)
+    replace_existing = request.get("replaceExisting") is True
+    replaced_camera_files = existing_camera_files(data) if replace_existing else set()
     signing = data / ".setup-signing.private.json"
     app_result = {}
     cache_data = Path(request.get("appCacheDir") or data / "app-cache").expanduser().resolve()
     with tempfile.TemporaryDirectory(prefix=".setup-", dir=data) as temp:
         stage = Path(temp)
         private_dir(stage)
-        if command in {"preparePlay", "prepareCached"}:
+        if command in {"preparePlay", "prepareCached"} and not replace_existing:
             refuse_existing_cameras(data)
         if command == "importConfig":
             refuse_existing_cameras(data)
@@ -343,7 +350,8 @@ def handle(request):
                 raise SetupError("invalid_signing", "This is not a valid private signing configuration.")
             (stage / "signing.private.json").write_text(json.dumps(config), encoding="utf-8")
         else:
-            refuse_existing_cameras(data)
+            if not replace_existing:
+                refuse_existing_cameras(data)
             source = signing if signing.exists() else data / "signing.private.json"
             if not source.exists():
                 raise SetupError("signing_missing", "Prepare the app or import your private signing configuration first.")
@@ -388,6 +396,8 @@ def handle(request):
                 if file.name != "cameras.private.json":
                     os.replace(file, data / file.name)
             os.replace(stage / "cameras.private.json", data / "cameras.private.json")
+            for stale_name in replaced_camera_files.difference(manifest):
+                (data / stale_name).unlink(missing_ok=True)
             signing.unlink(missing_ok=True)
             return {"ok": True, "cameraCount": len(manifest), "dataDir": str(data), "cameras": cameras, **app_result}
         os.replace(stage / "signing.private.json", signing)
