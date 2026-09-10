@@ -332,6 +332,8 @@ func TestConfiguredPageMatchesIntegrationFieldNamesAndOffersMaintenance(t *testi
 		"RTSP-Benutzername", "RTSP-Passwort",
 		"Wizard neu starten", "Zugangsdaten neu generieren",
 		"regenerateCredentials", "replaceExisting",
+		"Integration in HACS öffnen", "Momcozy-Kamera hinzufügen",
+		"hacs_repository", "config_flow_start", "$('bridgeHost').value='127.0.0.1'",
 	} {
 		if !strings.Contains(body, required) {
 			t.Fatalf("configured page is missing %q", required)

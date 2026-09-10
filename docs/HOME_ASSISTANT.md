@@ -20,7 +20,7 @@ Momcozy setup requires an email address and a password set for your Momcozy acco
 
    [![Open your Home Assistant instance and open the ingress URL of an app.](https://my.home-assistant.io/badges/supervisor_ingress.svg)](https://my.home-assistant.io/redirect/supervisor_ingress/?addon=4bb1db59_momcozy_bridge)
 
-4. Check the automatically detected Home Assistant IP or DNS name, adjust it if necessary, then click **Kameras einrichten → Bridge jetzt starten**.
+4. Keep `127.0.0.1` as **Bridge-Host** when the app and integration run on the same Home Assistant system. Adjust it only for a different network layout, then click **Kameras einrichten → Bridge jetzt starten**.
 
 If a direct link does not work, open **Settings → Apps → App store → Repositories**, add `https://github.com/Gamewalker/Momcozy-Desktop-and-HACS`, then install and open **Momcozy Bridge** from the app store.
 
@@ -48,7 +48,7 @@ Alternatively, open **HACS → ⋮ → Custom repositories** and add `https://gi
 | Field | Value |
 | --- | --- |
 | Name | A name for this camera |
-| Bridge host | Local IP or DNS name of the Home Assistant machine |
+| Bridge host | `127.0.0.1` when the app and integration run on the same Home Assistant system |
 | RTSP port | This camera's port, e.g. `19554` |
 | Stream path | This camera's path, e.g. `bm04_1` |
 | RTSP username / password | Values shown for this camera in the app web UI |

@@ -188,7 +188,7 @@ def apply_options(request, stage, manifest):
     advertised_host = host
     if mode == "ha":
         supplied_host = str(request.get("bridgeHost", "")).strip().rstrip(".")
-        invalid_host_message = ("Enter the Home Assistant LAN IP or DNS name."
+        invalid_host_message = ("Enter 127.0.0.1 or the Home Assistant LAN IP or DNS name."
                                 if addon_mode else "Enter this computer's private LAN IP for Home Assistant.")
         try:
             address = ipaddress.ip_address(supplied_host)
@@ -202,7 +202,14 @@ def apply_options(request, stage, manifest):
                 raise SetupError("invalid_host", invalid_host_message)
             advertised_host = supplied_host.lower()
         else:
-            if address.is_unspecified or address.is_loopback or address.is_multicast or not address.is_private:
+            loopback_allowed = addon_mode and str(address) == "127.0.0.1"
+            invalid_address = (
+                address.is_unspecified
+                or (address.is_loopback and not loopback_allowed)
+                or address.is_multicast
+                or (not address.is_private and not loopback_allowed)
+            )
+            if invalid_address:
                 raise SetupError("invalid_host", invalid_host_message)
             advertised_host = str(address)
         host = "0.0.0.0" if addon_mode else advertised_host
